@@ -28,6 +28,23 @@ logging.basicConfig(
 log = logging.getLogger("home-monitoring")
 
 
+def _iou(a, b) -> float:
+    """Intersection-over-union for boxes ``(x1, y1, x2, y2)``."""
+    ax1, ay1, ax2, ay2 = a
+    bx1, by1, bx2, by2 = b
+    iw = max(0.0, min(ax2, bx2) - max(ax1, bx1))
+    ih = max(0.0, min(ay2, by2) - max(ay1, by1))
+    inter = iw * ih
+    if inter <= 0.0:
+        return 0.0
+    area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)
+    area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
+    return inter / max(1e-6, area_a + area_b - inter)
+
+
+DOG_PERSON_IOU = 0.3
+
+
 def _detector_loop(detector: Detector, camera: CameraSource, state: dict,
                    notifier: Notifier, cfg: Config) -> None:
     """Run YOLO inference at DETECT_FPS and update shared state."""
@@ -45,6 +62,19 @@ def _detector_loop(detector: Detector, camera: CameraSource, state: dict,
             log.warning("Detection failed: %s", exc)
             time.sleep(interval)
             continue
+        # Suppress "dog" hits that overlap a person box: yolov8n @320px with
+        # classes filtered to person/dog frequently labels a person as dog.
+        person_boxes = [d["box"] for d in dets if d["label"] == "person"]
+        if person_boxes:
+            kept = []
+            for d in dets:
+                if d["label"] == "dog" and any(
+                        _iou(d["box"], pb) > DOG_PERSON_IOU for pb in person_boxes):
+                    log.info("dog candidate suppressed (overlaps person): "
+                             "conf=%.2f box=%s", d["conf"], d["box"])
+                    continue
+                kept.append(d)
+            dets = kept
         state["detections"] = dets
         labels = {d["label"] for d in dets}
         if "dog" in labels:
@@ -53,11 +83,11 @@ def _detector_loop(detector: Detector, camera: CameraSource, state: dict,
         dog_now = "dog" in labels
         # Temporal filter: single-frame "dog" hits are almost always false
         # positives (yolov8n @320px with classes filtered to person/dog).
-        # Require 2 consecutive detector runs before flagging dog_active.
+        # Require 3 consecutive detector runs before flagging dog_active.
         streak = state.get("dog_streak", 0)
         state["dog_streak"] = streak + 1 if dog_now else 0
         was_active = bool(state.get("dog_active"))
-        state["dog_active"] = state["dog_streak"] >= 2
+        state["dog_active"] = state["dog_streak"] >= 3
         state["person_active"] = "person" in labels
         if state["dog_active"] and not was_active:
             state["dog_active_since"] = time.time()
