@@ -47,6 +47,9 @@ def _detector_loop(detector: Detector, camera: CameraSource, state: dict,
             continue
         state["detections"] = dets
         labels = {d["label"] for d in dets}
+        if "dog" in labels:
+            dogs = [(round(d["conf"], 2), d["box"]) for d in dets if d["label"] == "dog"]
+            log.info("dog candidate: %s", dogs)
         dog_now = "dog" in labels
         # Temporal filter: single-frame "dog" hits are almost always false
         # positives (yolov8n @320px with classes filtered to person/dog).
