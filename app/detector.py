@@ -1,13 +1,20 @@
-"""YOLOv8 object detection (COCO pretrained) via ONNX Runtime.
+"""YOLOv8 object detection (COCO pretrained).
 
-The Jetson base image ships OpenCV 4.5, whose ``cv2.dnn`` ONNX importer
-cannot parse YOLOv8 graphs (shape assertion / unsupported nodes). Instead
-we run inference with ``onnxruntime`` (aarch64 wheel, CPU provider) on the
-exported ``yolov8n.onnx``.
+Two inference backends, chosen by model file extension:
 
-Model file: an exported ``yolov8n.onnx`` (e.g. produced with
-``yolo export model=yolov8n.pt format=onnx imgsz=640``) placed in the
-``/app/models`` volume (bind-mounted from ``./models`` on the host).
+- ``.onnx`` -> onnxruntime (CPU only on Jetson/Python 3.6, ~1.5 FPS @320px)
+- ``.torchscript`` -> PyTorch ``torch.jit`` on CUDA (~20 FPS @320px on the
+  Jetson Nano; torch 1.10 with CUDA ships in the base image)
+
+Model file: placed in the ``/app/models`` volume (bind-mounted from
+``./models`` on the host). Export examples:
+
+    yolo export model=yolov8n.pt format=onnx imgsz=320
+    yolo export model=yolov8n.pt format=torchscript imgsz=320
+
+NOTE: TorchScript files are only loadable by the torch version that (or a
+newer one than) created them. The bundled ``yolov8n.torchscript`` was
+exported with torch 1.10 to match the Jetson base image.
 
 Preprocessing uses letterbox resize (aspect-ratio preserving) to the
 configured ``img_size``; boxes are decoded from the YOLOv8 output tensor
@@ -73,13 +80,14 @@ def _letterbox(img, new_size: int):
 
 
 class Detector:
-    """Wrapper around onnxruntime for ONNX-exported YOLOv8 models."""
+    """Wrapper around onnxruntime (ONNX) or torch.jit (TorchScript)."""
 
     def __init__(self, cfg: DetectorConfig, models_dir: str = MODELS_DIR) -> None:
         self.cfg = cfg
         self.models_dir = models_dir
         os.makedirs(models_dir, exist_ok=True)
         self._sess: Any = None
+        self._ts: Any = None
         self._input_name: str = ""
         self._device: str = "cpu"
         # COCO class subset actually searched (None = all 80).
@@ -104,21 +112,27 @@ class Detector:
 
     # -- load -------------------------------------------------------------------
     def load(self) -> None:
+        path = self._model_path()
+        if not os.path.isfile(path):
+            raise FileNotFoundError(
+                f"YOLO model not found: {path} "
+                f"(put {self.cfg.model} into {self.models_dir})"
+            )
+        ext = os.path.splitext(path)[1].lower()
+        if ext in (".torchscript", ".ts", ".pt"):
+            self._load_torchscript(path)
+        else:
+            self._load_onnx(path)
+        self._classes = self.cfg.classes or None
+
+    def _load_onnx(self, path: str) -> None:
         try:
             import onnxruntime as ort
         except ImportError:
             raise RuntimeError(
                 "onnxruntime not installed (pip install onnxruntime==1.10.0)"
             )
-
-        path = self._model_path()
-        if not os.path.isfile(path):
-            raise FileNotFoundError(
-                f"YOLO ONNX model not found: {path} "
-                f"(put {self.cfg.model} into {self.models_dir})"
-            )
         log.info("Loading YOLO ONNX model: %s", path)
-
         # CPU-only: onnxruntime 1.10 aarch64 has no CUDA provider.
         self._device = "cpu"
         opts = ort.SessionOptions()
@@ -127,18 +141,38 @@ class Detector:
             path, sess_options=opts, providers=["CPUExecutionProvider"],
         )
         self._input_name = self._sess.get_inputs()[0].name
-        self._classes = self.cfg.classes or None
-        log.info("Model ready (device=cpu, classes=%s).", self._classes)
+        log.info("Model ready (backend=onnxruntime, device=cpu, classes=%s).",
+                 self._classes)
+
+    def _load_torchscript(self, path: str) -> None:
+        try:
+            import torch
+        except ImportError:
+            raise RuntimeError(
+                "torch not installed (ships with the Jetson base image)"
+            )
+        want_cuda = self.cfg.device.startswith("cuda") or (
+            self.cfg.device == "auto" and torch.cuda.is_available()
+        )
+        device = "cuda" if want_cuda and torch.cuda.is_available() else "cpu"
+        log.info("Loading YOLO TorchScript model: %s (device=%s)", path, device)
+        # map_location at load time: scripted models may keep internal
+        # buffers on CPU otherwise ("tensors on different devices" error).
+        self._ts = torch.jit.load(path, map_location=device)
+        self._ts.eval()
+        self._device = device
+        log.info("Model ready (backend=torchscript, device=%s, classes=%s).",
+                 device, self._classes)
 
     # -- properties ---------------------------------------------------------------
     @property
     def loaded(self) -> bool:
-        return self._sess is not None
+        return self._sess is not None or self._ts is not None
 
     @property
     def using_engine(self) -> bool:
-        """Kept for API compatibility."""
-        return False
+        """True when inference runs on the GPU (torchscript + CUDA)."""
+        return self._ts is not None and self._device == "cuda"
 
     @property
     def device(self) -> str:
@@ -218,11 +252,18 @@ class Detector:
         *detections* is a list of dicts: ``class_id``, ``label``, ``conf``,
         ``box`` (x1, y1, x2, y2). If *draw* is True, boxes are drawn on *frame*.
         """
-        if self._sess is None:
+        if self._sess is None and self._ts is None:
             return frame, []
 
         blob, scale, pad_w, pad_h = self._preprocess(frame)
-        outputs = self._sess.run(None, {self._input_name: blob})
+        if self._ts is not None:
+            import torch
+            x = torch.from_numpy(blob).to(self._device)
+            with torch.no_grad():
+                out = self._ts(x)
+            outputs = [out.detach().cpu().numpy()]
+        else:
+            outputs = self._sess.run(None, {self._input_name: blob})
         detections = self._postprocess(outputs, frame.shape, scale, pad_w, pad_h)
 
         if draw:
