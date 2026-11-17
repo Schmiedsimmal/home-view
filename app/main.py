@@ -47,7 +47,13 @@ def _detector_loop(detector: Detector, camera: CameraSource, state: dict,
             continue
         state["detections"] = dets
         labels = {d["label"] for d in dets}
-        state["dog_active"] = "dog" in labels
+        dog_now = "dog" in labels
+        # Temporal filter: single-frame "dog" hits are almost always false
+        # positives (yolov8n @320px with classes filtered to person/dog).
+        # Require 2 consecutive detector runs before flagging dog_active.
+        streak = state.get("dog_streak", 0)
+        state["dog_streak"] = streak + 1 if dog_now else 0
+        state["dog_active"] = state["dog_streak"] >= 2
         state["person_active"] = "person" in labels
         if state["dog_active"]:
             state["dog_detected_ts"] = time.time()
@@ -111,6 +117,7 @@ def main() -> None:
         "motion_active": False,
         "motion_area": 0,
         "dog_active": False,
+        "dog_streak": 0,
         "person_active": False,
         "dog_detected_ts": 0.0,
         "detections": [],
