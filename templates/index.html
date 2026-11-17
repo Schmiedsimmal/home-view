@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Wohnungs-Monitoring</title>
+    <title>Apartment Monitoring</title>
     <style>
         :root {
             --bg: #0f1115;
@@ -141,11 +141,11 @@
 </head>
 <body>
     <header>
-        <h1>Wohnungs-Monitoring</h1>
+        <h1>Apartment Monitoring</h1>
         <div class="pills">
-            <span class="status-pill"><span id="dot-camera" class="dot"></span>Kamera</span>
+            <span class="status-pill"><span id="dot-camera" class="dot"></span>Camera</span>
             <span class="status-pill"><span id="dot-stream"  class="dot"></span>Stream</span>
-            <span class="status-pill"><span id="dot-rec"     class="dot"></span>Aufnahme</span>
+            <span class="status-pill"><span id="dot-rec"     class="dot"></span>Recording</span>
             <span class="status-pill"><span id="dot-ssd"     class="dot"></span>SSD</span>
         </div>
     </header>
@@ -153,15 +153,15 @@
     <main>
         <section>
             <div class="stream-wrap">
-                <img id="stream-img" src="" alt="Livestream" style="display:none" onerror="onStreamError()">
+                <img id="stream-img" src="" alt="Live stream" style="display:none" onerror="onStreamError()">
                 <div id="stream-placeholder" class="stream-placeholder">
-                    <p>Stream ist gestoppt.</p>
-                    <p style="font-size:13px">Klick auf „Stream starten", um die Live-Ansicht zu oeffnen.</p>
+                    <p>Stream is stopped.</p>
+                    <p style="font-size:13px">Click "Start stream" to open the live view.</p>
                 </div>
             </div>
             <div class="controls">
-                <button id="btn-start" onclick="streamControl('start')">Stream starten</button>
-                <button id="btn-stop" class="danger" onclick="streamControl('stop')" style="display:none">Stream stoppen</button>
+                <button id="btn-start" onclick="streamControl('start')">Start stream</button>
+                <button id="btn-stop" class="danger" onclick="streamControl('stop')" style="display:none">Stop stream</button>
             </div>
             <div id="video-container"></div>
         </section>
@@ -169,28 +169,28 @@
         <aside>
             <div class="panel">
                 <h2>Status</h2>
-                <div class="kv"><span>Kamera verbunden</span><span id="camera-open" class="v">-</span></div>
-                <div class="kv"><span>Stream aktiv</span><span id="stream-active" class="v">-</span></div>
-                <div class="kv"><span>Aufnahme aktiv</span><span id="rec-active" class="v">-</span></div>
-                <div class="kv"><span>Aufnahme-Dauer</span><span id="rec-elapsed" class="v">-</span></div>
-                <div class="kv"><span>Bewegung</span><span id="motion-active" class="v">-</span></div>
-                <div class="kv"><span>Hund erkannt</span><span id="dog-active" class="v">-</span></div>
-                <div class="kv"><span>Letzte Erkennung</span><span id="detections" class="v">-</span></div>
-                <div class="kv"><span>Detektor</span><span id="detector" class="v">-</span></div>
-                <div class="kv"><span>Benachrichtigung</span><span id="notify" class="v">-</span></div>
-                <div class="kv"><span>SSD frei</span><span id="disk-free" class="v">-</span></div>
-                <div class="kv"><span>SSD belegt</span><span id="disk-used" class="v">-</span></div>
+                <div class="kv"><span>Camera connected</span><span id="camera-open" class="v">-</span></div>
+                <div class="kv"><span>Stream active</span><span id="stream-active" class="v">-</span></div>
+                <div class="kv"><span>Recording active</span><span id="rec-active" class="v">-</span></div>
+                <div class="kv"><span>Recording duration</span><span id="rec-elapsed" class="v">-</span></div>
+                <div class="kv"><span>Motion</span><span id="motion-active" class="v">-</span></div>
+                <div class="kv"><span>Dog detected</span><span id="dog-active" class="v">-</span></div>
+                <div class="kv"><span>Last detection</span><span id="detections" class="v">-</span></div>
+                <div class="kv"><span>Detector</span><span id="detector" class="v">-</span></div>
+                <div class="kv"><span>Notification</span><span id="notify" class="v">-</span></div>
+                <div class="kv"><span>SSD free</span><span id="disk-free" class="v">-</span></div>
+                <div class="kv"><span>SSD used</span><span id="disk-used" class="v">-</span></div>
             </div>
 
             <div class="panel">
-                <h2>Aufnahmen</h2>
-                <div id="recordings-list"><span class="rec-meta">Lade...</span></div>
+                <h2>Recordings</h2>
+                <div id="recordings-list"><span class="rec-meta">Loading...</span></div>
             </div>
         </aside>
     </main>
 
     <footer>
-        Home Monitoring &middot; Jetson Nano &middot; <a href="/logout">Abmelden</a>
+        Home Monitoring &middot; Jetson Nano &middot; <a href="/logout">Log out</a>
     </footer>
 
     <script>
@@ -224,7 +224,7 @@
             if (!active) img.removeAttribute("src");
         }
 
-        // MJPEG-Verbindung abgebrochen (z.B. Server-Neustart) -> erneut versuchen.
+        // MJPEG connection dropped (e.g. server restart) -> try again.
         function onStreamError() {
             const img = $("stream-img");
             img.removeAttribute("src");
@@ -251,19 +251,19 @@
                 const list = await r.json();
                 const el = $("recordings-list");
                 if (!list.length) {
-                    el.innerHTML = '<span class="rec-meta">Keine Aufnahmen vorhanden.</span>';
+                    el.innerHTML = '<span class="rec-meta">No recordings available.</span>';
                     return;
                 }
                 el.innerHTML = list.map(rec => {
                     const d = rec.start ? new Date(rec.start) : new Date(rec.mtime * 1000);
-                    const label = d.toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
+                    const label = d.toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" });
                     return `<div class="rec-item">
                         <div>
                             <div>${label}</div>
                             <div class="rec-meta">${fmtBytes(rec.size)}</div>
                         </div>
                         <div class="rec-actions">
-                            <button class="secondary" onclick="playRecording('${rec.name}')">Abspielen</button>
+                            <button class="secondary" onclick="playRecording('${rec.name}')">Play</button>
                             <a class="secondary btn" href="/recordings/${rec.name}?download=1">Download</a>
                         </div>
                     </div>`;
@@ -286,27 +286,27 @@
                 setDot($("dot-rec"), s.recording && s.recording.active);
                 setDot($("dot-ssd"), s.disk && s.disk.used_percent != null && s.disk.used_percent < 80);
 
-                setVal("camera-open", s.camera_open ? "JA" : "NEIN", s.camera_open);
-                setVal("stream-active", s.stream_active ? "JA" : "NEIN", s.stream_active);
-                setVal("rec-active", s.recording.active ? "JA" : "NEIN", s.recording.active);
+                setVal("camera-open", s.camera_open ? "YES" : "NO", s.camera_open);
+                setVal("stream-active", s.stream_active ? "YES" : "NO", s.stream_active);
+                setVal("rec-active", s.recording.active ? "YES" : "NO", s.recording.active);
                 setVal("rec-elapsed", s.recording.active ? Math.floor(s.recording.elapsed_s) + " s" : "-");
-                setVal("motion-active", s.motion_active ? "JA" : "NEIN", s.motion_active);
-                setVal("dog-active", s.dog_active ? "JA" : "NEIN", s.dog_active);
+                setVal("motion-active", s.motion_active ? "YES" : "NO", s.motion_active);
+                setVal("dog-active", s.dog_active ? "YES" : "NO", s.dog_active);
                 setVal("detections", (s.detections && s.detections.length) ? s.detections.join(", ") : "-");
                 const d = s.detector || {};
-                setVal("detector", d.enabled ? (d.loaded ? (d.using_engine ? "TensorRT" : "PyTorch") + " / " + (d.device || "-") : "lädt...") : "aus",
+                setVal("detector", d.enabled ? (d.loaded ? (d.using_engine ? "TensorRT" : "PyTorch") + " / " + (d.device || "-") : "loading...") : "off",
                        d.enabled ? d.loaded : null);
-                setVal("notify", s.notify_enabled ? "aktiv" : "aus", s.notify_enabled);
+                setVal("notify", s.notify_enabled ? "on" : "off", s.notify_enabled);
                 setVal("disk-free", fmtBytes(s.disk && s.disk.free_bytes), null);
                 setVal("disk-used", s.disk && s.disk.used_percent != null ? s.disk.used_percent + " %" : "-", null);
 
                 if (s.stream_active !== undefined) applyStreamState(s.stream_active);
                 if (s.recording && s.recording.error) {
-                    // Fehler im Status-Panel sichtbar machen (kleiner Hinweis).
-                    setVal("rec-active", "FEHLER: " + s.recording.error, false);
+                    // Make the error visible in the status panel (small note).
+                    setVal("rec-active", "ERROR: " + s.recording.error, false);
                 }
             } catch (e) {
-                // Server nicht bereit - stillschweigend erneut versuchen.
+                // Server not ready - silently retry.
             }
         }
 

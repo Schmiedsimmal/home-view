@@ -1,19 +1,19 @@
 # =============================================================================
-# Lokales Development-Override (x86 ohne NVIDIA-Runtime, ohne CSI/Argus).
+# Local development override (x86 without NVIDIA runtime, without CSI/Argus).
 #
-# Diese Datei wird von docker compose automatisch neben docker-compose.yml
-# geladen und deaktiviert GPU-, Argus- und CSI-spezifische Einstellungen.
+# This file is loaded automatically by docker compose alongside
+# docker-compose.yml and disables GPU-, Argus- and CSI-specific settings.
 #
-# Auf dem Jetson: diese Datei loeschen oder umbenennen
+# On the Jetson: delete or rename this file
 #   (mv docker-compose.override.yml docker-compose.override.yml.disabled)
 # =============================================================================
 
 services:
   home-monitoring:
-    # runtime: nvidia ist im Base-File gesetzt; hier ohne GPU laufen lassen.
+    # runtime: nvidia is set in the base file; run without GPU here.
     runtime: ""
-    # Base-File nutzt network_mode: host (Jetson, IPv6-only). Auf der Dev-
-    # Maschine wieder Bridge-Netzwerk + Port-Mapping verwenden.
+    # The base file uses network_mode: host (Jetson, IPv6-only). On the dev
+    # machine use bridge networking + port mapping again.
     network_mode: bridge
     ports:
       - "${HOME_MONITOR_PORT:-8080}:8080"
@@ -22,12 +22,12 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=
       - PYTHONUNBUFFERED=1
       - TZ=${TZ:-Europe/Berlin}
-    # Video-Device fuer die Dev-Maschine anpassen (z.B. /dev/video0,
-    # /dev/video6, ...). !override ersetzt die Device-Liste aus
-    # docker-compose.yml komplett (keine nvhost-Devices auf x86).
+    # Adjust the video device for the dev machine (e.g. /dev/video0,
+    # /dev/video6, ...). !override completely replaces the device list from
+    # docker-compose.yml (no nvhost devices on x86).
     devices: !override
       - /dev/video0:/dev/video0
-    # Volumes ohne Argus-Socket (gibt es auf x86 nicht).
+    # Volumes without Argus socket (does not exist on x86).
     volumes: !override
       - ${RECORDINGS_HOST_DIR:-/mnt/ssd/recordings}:/recordings:rw
       - ./models:/app/models:rw

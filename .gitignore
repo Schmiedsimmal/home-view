@@ -1,4 +1,4 @@
-# Secrets / lokale Konfiguration
+# Secrets / local configuration
 .env
 
 # Python
@@ -8,11 +8,11 @@ __pycache__/
 .venv/
 venv/
 
-# Aufnahmen (falls lokal gemountet)
+# Recordings (if mounted locally)
 recordings/
 *.mp4
 
-# Modelle / Caches
+# Models / caches
 models/
 *.engine
 *.pt

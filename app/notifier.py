@@ -40,8 +40,8 @@ class Notifier:
         if self._cooldown_active():
             return False
 
-        title = "Hund erkannt"
-        message = f"{extra}Hund in der Wohnung gesehen.".strip() if extra else "Hund in der Wohnung gesehen."
+        title = "Dog detected"
+        message = f"{extra}Dog seen in the apartment.".strip() if extra else "Dog seen in the apartment."
         tags = "dog,house"
         priority = "high"
 

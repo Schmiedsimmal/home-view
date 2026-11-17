@@ -1,15 +1,16 @@
 # =============================================================================
 # Home Monitoring - docker-compose
 #
-# Ein Service: home-monitoring (FastAPI-Web-UI + Kamera-Pipeline).
+# One service: home-monitoring (FastAPI web UI + camera pipeline).
 #
-# WICHTIG: Auf dem Jetson muss die NVIDIA Container Runtime installiert sein
-# (siehe scripts/setup-jetson.sh). Auf x86-Dev-Maschinen die Datei
-# docker-compose.override.yml verwenden (kein GPU, anderes Video-Device).
+# IMPORTANT: On the Jetson the NVIDIA Container Runtime must be installed
+# (see scripts/setup-jetson.sh). On x86 dev machines use the file
+# docker-compose.override.yml (no GPU, different video device).
 #
-# Netzwerk: network_mode=host, weil der Jetson ein IPv6-only Internet hat
-# (kein IPv4-Default-Route). Bridge-Netzwerke im Docker-Container haetten
-# sonst keinen funktionierenden DNS/Internet-Zugang (ntfy.sh, Pip-Index).
+# Network: network_mode=host because the Jetson has an IPv6-only internet
+# connection (no IPv4 default route). Bridge networks inside the Docker
+# container would otherwise have no working DNS/internet access
+# (ntfy.sh, pip index).
 # =============================================================================
 
 services:
@@ -17,16 +18,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      # Build-Schritte (pip install) ebenfalls ueber das Host-Netzwerk,
-      # damit DNS/IPv6 aufloest (siehe network_mode oben).
+      # Build steps (pip install) also run over the host network so that
+      # DNS/IPv6 resolves (see network_mode above).
       network: host
     container_name: home-monitoring
     restart: unless-stopped
     network_mode: host
-    # Docker setzt fuer host-networked Container 8.8.8.8 als DNS (IPv4), der
-    # Jetson hat aber nur IPv6-Internet. Der systemd-resolved-Stub des Hosts
-    # unter 127.0.0.53 ist im Host-Netzwerk erreichbar und loest DNS auf
-    # (wichtig fuer ntfy.sh-Benachrichtigungen).
+    # Docker sets 8.8.8.8 as DNS for host-networked containers (IPv4), but
+    # the Jetson only has IPv6 internet. The host's systemd-resolved stub
+    # at 127.0.0.53 is reachable in the host network and resolves DNS
+    # (important for ntfy.sh notifications).
     dns:
       - 127.0.0.53
     env_file:
@@ -38,14 +39,13 @@ services:
       - PYTHONUNBUFFERED=1
     runtime: nvidia
     devices:
-      # USB-Webcam (backend=usb): Host-Geraet (z.B. /dev/video0) wird als
-      # /dev/video0 in den Container gemappt. VIDEO_DEVICE in .env anpassen.
-      # WICHTIG: Docker bricht den Start ab, wenn das Host-Device nicht
-      # existiert — bei reiner CSI-Nutzung (kein USB-Geraet) diese Zeile
-      # auskommentieren!
+      # USB webcam (backend=usb): host device (e.g. /dev/video0) is mapped
+      # as /dev/video0 into the container. Adjust VIDEO_DEVICE in .env.
+      # IMPORTANT: Docker aborts startup if the host device does not exist —
+      # when only using a CSI camera (no USB device) comment out this line!
       - ${VIDEO_DEVICE:-/dev/video0}:/dev/video0
-      # CSI-Kamera (backend=nvargus): Argus/ISP/GPU-Devices + Argus-Socket.
-      # Ohne diese Mounts kann nvarguscamerasrc im Container nicht öffnen.
+      # CSI camera (backend=nvargus): Argus/ISP/GPU devices + Argus socket.
+      # Without these mounts nvarguscamerasrc cannot open in the container.
       - /dev/nvhost-as-gpu:/dev/nvhost-as-gpu
       - /dev/nvhost-ctrl:/dev/nvhost-ctrl
       - /dev/nvhost-ctrl-gpu:/dev/nvhost-ctrl-gpu
@@ -70,11 +70,11 @@ services:
       - /dev/nvhost-vic:/dev/nvhost-vic
       - /dev/nvmap:/dev/nvmap
     volumes:
-      # Argus-Daemon-Socket (Host) -> Container (für nvarguscamerasrc)
+      # Argus daemon socket (host) -> container (for nvarguscamerasrc)
       - /tmp/argus_socket:/tmp/argus_socket
-      # Aufnahmen-SSD (Host-Pfad -> /recordings im Container)
+      # Recordings SSD (host path -> /recordings in the container)
       - ${RECORDINGS_HOST_DIR:-/mnt/ssd/recordings}:/recordings:rw
-      # YOLO-ONNX-Modell (./models/yolov8n.onnx auf dem Host)
+      # YOLO ONNX model (./models/yolov8n.onnx on the host)
       - ./models:/app/models:rw
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz', timeout=2)"]
@@ -82,8 +82,8 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
-    # Log-Rotation: der Kamera-Retry-Loop (Kamera nicht gesteckt) erzeugt
-    # sonst sehr viele Logs. Maximal 3 x 10 MB aufheben.
+    # Log rotation: the camera retry loop (camera not plugged in) would
+    # otherwise generate very many logs. Keep at most 3 x 10 MB.
     logging:
       driver: json-file
       options:

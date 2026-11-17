@@ -101,17 +101,17 @@ def build_app(
     async def recording_file(name: str, download: bool = Query(False)):
         # Path traversal protection: only plain *.mp4 filenames.
         if "/" in name or "\\" in name or not name.endswith(".mp4") or name.startswith("."):
-            raise HTTPException(status_code=400, detail="Ungültiger Dateiname")
+            raise HTTPException(status_code=400, detail="Invalid filename")
         path = os.path.join(cfg.record.dir, name)
         if not os.path.isfile(path):
-            raise HTTPException(status_code=404, detail="Aufnahme nicht gefunden")
+            raise HTTPException(status_code=404, detail="Recording not found")
         headers = {"Content-Length": str(os.path.getsize(path))}
         if download:
             headers["Content-Disposition"] = f'attachment; filename="{name}"'
-        # StreamingResponse statt FileResponse: die alte Starlette-Version
-        # in requirements.txt braucht fuer FileResponse das aiofiles-Paket,
-        # das nicht installiert ist. Das MP4 hat +faststart, daher spielt
-        # der Browser es progressiv ohne Range-Requests ab.
+        # StreamingResponse instead of FileResponse: the old Starlette
+        # version in requirements.txt needs the aiofiles package for
+        # FileResponse, which is not installed. The MP4 has +faststart,
+        # so the browser plays it progressively without range requests.
         return StreamingResponse(
             _iter_file(path),
             media_type="video/mp4",
@@ -173,7 +173,7 @@ def build_app(
     async def stream() -> StreamingResponse:
         if not state.get("stream_active"):
             return JSONResponse(
-                {"detail": "Stream ist gestoppt. Bitte zuerst starten."},
+                {"detail": "Stream is stopped. Please start it first."},
                 status_code=409,
             )
         return StreamingResponse(
@@ -206,7 +206,7 @@ def _disk_info(path: str) -> dict:
             "used_percent": round(usage.used / usage.total * 100.0, 1),
         }
     except OSError:
-        return {"path": path, "free_bytes": 0, "total_bytes": 0, "used_percent": None, "error": "nicht erreichbar"}
+        return {"path": path, "free_bytes": 0, "total_bytes": 0, "used_percent": None, "error": "unreachable"}
 
 
 def _notify_enabled(cfg: Config) -> bool:

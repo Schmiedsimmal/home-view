@@ -76,7 +76,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         # API / stream / recording clients get a clean 401.
         if path.startswith("/api/") or path == "/stream" or path.startswith("/recordings/"):
-            return JSONResponse({"detail": "Nicht authentifiziert"}, status_code=401)
+            return JSONResponse({"detail": "Not authenticated"}, status_code=401)
 
         return RedirectResponse("/login", status_code=303)
 
@@ -92,11 +92,11 @@ def setup_auth(app: FastAPI, cfg: WebConfig) -> None:
     app.add_middleware(AuthMiddleware, password=cfg.password, secret=cfg.secret)
 
     if not cfg.password:
-        log.warning("WEB_PASSWORD ist leer — Authentifizierung DEAKTIVIERT!")
+        log.warning("WEB_PASSWORD is empty — authentication DISABLED!")
 
     @app.get("/login", response_class=HTMLResponse)
     async def login_form(error: str = "") -> HTMLResponse:
-        msg = "Falsches Passwort." if error else ""
+        msg = "Wrong password." if error else ""
         return _render_login(msg)
 
     @app.post("/login")

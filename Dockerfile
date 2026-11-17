@@ -1,42 +1,42 @@
 # =============================================================================
-# home-monitoring: Jetson-Nano-Wohnungsueberwachung
+# home-monitoring: Jetson Nano apartment monitoring
 #
-# Build context: Repo-Root (siehe docker-compose.yml).
+# Build context: repo root (see docker-compose.yml).
 #
-# Base image per ARG waehlbar:
-#   - dustynv/jetson-inference:r32.7.1 (Default, JetPack 4.6, von Docker Hub
-#     erreichbar — enthält OpenCV 4.5 (CUDA+dnn), PyTorch 1.10, TensorRT,
+# Base image selectable via ARG:
+#   - dustynv/jetson-inference:r32.7.1 (default, JetPack 4.6, available on
+#     Docker Hub — includes OpenCV 4.5 (CUDA+dnn), PyTorch 1.10, TensorRT,
 #     GStreamer, Python 3.6)
-#   - nexus.robobrain.cloud/sdk:latest (nur wenn das interne Nexus erreichbar
-#     ist, z.B. per VPN; Python 3.12, torch+CUDA, opencv)
+#   - nexus.robobrain.cloud/sdk:latest (only if the internal Nexus is
+#     reachable, e.g. via VPN; Python 3.12, torch+CUDA, opencv)
 #
-# Hinweise:
-#   - Das Basis-Image enthaelt nur den root-User (kein ubuntu) → Service
-#     laeuft als root.
-#   - Kein apt-get im Build — die Ubuntu-Bionic-Paketquellen sind auf dem
-#     Jetson (IPv6-only Internet) nicht zuverlaessig erreichbar. ffmpeg
-#     kommt stattdessen als statisches Binary aus dem imageio-ffmpeg-Pip-
-#     Paket (siehe app/recorder.py).
+# Notes:
+#   - The base image only contains the root user (no ubuntu) -> the service
+#     runs as root.
+#   - No apt-get in the build — the Ubuntu Bionic package sources are not
+#     reliably reachable on the Jetson (IPv6-only internet). ffmpeg instead
+#     comes as a static binary from the imageio-ffmpeg pip package
+#     (see app/recorder.py).
 # =============================================================================
 ARG BASE_IMAGE=dustynv/jetson-inference:r32.7.1
 FROM ${BASE_IMAGE}
 
-# UTF-8-Locale: das alte pip 9.0.1 im Basis-Image decodiert requirements.txt
-# sonst mit ascii und scheitert an deutschen Kommentaren (Umlaute).
+# UTF-8 locale: the old pip 9.0.1 in the base image would otherwise decode
+# requirements.txt as ascii and fail on German comments (umlauts).
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
 WORKDIR /app
 
 # Python dependencies (fastapi, uvicorn, imageio-ffmpeg, pytest).
-# System-weit installieren (kein --user), da root als User laeuft.
-# pip 21.3.1 ist die letzte Python-3.6-kompatible Version (Basis-Image hat
-# nur pip 9.0.1, das zu alt fuer moderne Wheels ist).
+# Install system-wide (no --user) since root is the user.
+# pip 21.3.1 is the last Python-3.6-compatible version (the base image only
+# has pip 9.0.1, which is too old for modern wheels).
 #
-# DNS-Fix fuer den Build: BuildKit gibt dem Build-Container 8.8.8.8 als
-# Nameserver (IPv4), der Jetson hat aber nur IPv6-Internet. Mit
-# network: host ist der systemd-resolved-Stub des Hosts unter 127.0.0.53
-# erreichbar — daher resolv.conf im Build-Schritt ueberschreiben.
+# DNS fix for the build: BuildKit gives the build container 8.8.8.8 as
+# nameserver (IPv4), but the Jetson only has IPv6 internet. With
+# network: host, the host's systemd-resolved stub at 127.0.0.53 is
+# reachable — therefore override resolv.conf in the build step.
 COPY requirements.txt /tmp/requirements.txt
 RUN echo nameserver 127.0.0.53 > /etc/resolv.conf \
     && python3 -m pip install --no-cache-dir --upgrade "pip==21.3.1" \
@@ -46,8 +46,8 @@ RUN echo nameserver 127.0.0.53 > /etc/resolv.conf \
 COPY app/ /app/app/
 COPY templates/ /app/templates/
 
-# Mount points (werden per Volume ueberschrieben, aber Verzeichnisstruktur
-# im Image bereitstellen).
+# Mount points (overridden by volumes, but provide the directory structure
+# in the image).
 RUN mkdir -p /app/models /recordings
 
 EXPOSE 8080

@@ -1,6 +1,6 @@
-# Architektur
+# Architecture
 
-## Übersicht
+## Overview
 
 ```
                 ┌──────────────────────────────────────────────────────────┐
@@ -23,124 +23,124 @@
                 └────────┼─────────────────────┴───────────┬─────────────┘ │
                          │                                 │ HTTP :8080    │
                          │                                 ▼               │
-                         │                    Browser (LAN oder WireGuard)  │
-                         │                    Login → Live-View, Aufnahmen  │
+                         │                    Browser (LAN or WireGuard)    │
+                         │                    Login → Live view, recordings │
                          └──────────────────────────────────────────────────┘
 ```
 
-## Komponenten
+## Components
 
 ### CameraSource (`app/camera.py`)
 
-Thread-sicherer Frame-Grabber auf OpenCV `VideoCapture`. Ein Background-Thread
-öffnet die Quelle (`usb:0`, `rtsp://...` oder Pfad) und hält immer den
-neuesten Frame. Bei Verbindungsabbruch wird mit Backoff neu verbunden.
-**Die Kamera wird genau einmal geöffnet** – alle Consumer (Stream, Detektor,
-Bewegung, Aufzeichnung) lesen dieselben Frames.
+Thread-safe frame grabber on OpenCV `VideoCapture`. A background thread
+opens the source (`usb:0`, `rtsp://...` or a path) and always holds the
+most recent frame. On connection loss it reconnects with backoff.
+**The camera is opened exactly once** – all consumers (stream, detector,
+motion, recording) read the same frames.
 
 ### DetectorLoop (`app/main.py` + `app/detector.py`)
 
-- YOLOv8 (Standard `yolov8n.onnx`, COCO-vortrainiert, ONNX-Export) via
-  OpenCV `cv2.dnn` mit CUDA-Backend. Auf dem Jetson Nano bei `DETECT_FPS=5`
-  und `YOLO_IMG_SIZE=640` ein guter Kompromiss aus Geschwindigkeit und
-  Genauigkeit. (TensorRT/ultralytics entfällt, weil JetPack 4.x nur
-  Python 3.6 liefert.)
-- Konfigurierbare Klassen (`DETECT_CLASSES`, Default `0,16` = person, dog).
-- Erkennt `dog` → setzt `dog_active` + `dog_detected_ts` im Shared-State und
-  löst die ntfy-Benachruptigung aus (mit Cooldown).
-- Erkennt `person` → nur Statusanzeige (kein Recording-Trigger nötig,
-  konfigurierbar über `DETECT_CLASSES`).
+- YOLOv8 (default `yolov8n.onnx`, COCO pretrained, ONNX export) via
+  OpenCV `cv2.dnn` with CUDA backend. On the Jetson Nano at `DETECT_FPS=5`
+  and `YOLO_IMG_SIZE=640` a good compromise between speed and accuracy.
+  (TensorRT/ultralytics is not used because JetPack 4.x only ships
+  Python 3.6.)
+- Configurable classes (`DETECT_CLASSES`, default `0,16` = person, dog).
+- Detects `dog` → sets `dog_active` + `dog_detected_ts` in the shared state and
+  triggers the ntfy notification (with cooldown).
+- Detects `person` → status display only (no recording trigger needed,
+  configurable via `DETECT_CLASSES`).
 
 ### MotionLoop (`app/main.py` + `app/motion.py`)
 
-Frame-Differenz ohne ML: Frame auf 320x180 skalieren → Graubild →
-`absdiff` zum Vorgänger → Schwelle + Kontur-Fläche. Läuft mit
-`MOTION_FPS=5` und vernachlässigbarer CPU-Last. Setzt `motion_active` +
-`motion_area` im Shared-State.
+Frame differencing without ML: scale frame to 320x180 → grayscale →
+`absdiff` to the previous frame → threshold + contour area. Runs at
+`MOTION_FPS=5` with negligible CPU load. Sets `motion_active` +
+`motion_area` in the shared state.
 
 ### RecorderController (`app/recorder.py`)
 
-State-Machine `idle → recording` in einem eigenen Thread (50-ms-Takt):
+State machine `idle → recording` in its own thread (50-ms tick):
 
 1. **Trigger** (`RECORD_TRIGGER`): `motion` | `dog` | `motion_or_dog` | `always`.
-   Bei aktivem Trigger wird `last_trigger_ts` aktualisiert.
-2. **Start** (nur wenn getriggert): Prüft freien Speicher (`RECORD_MIN_FREE_MB`)
-   und startet ffmpeg mit Rawvideo-Pipe (`-f rawvideo -pix_fmt bgr24`).
-3. **Feed**: Frames aus `camera.latest_frame()` werden mit `RECORD_FPS`
-   als Rohbytes in den ffmpeg-stdin geschrieben.
-4. **Stop**: erst wenn `RECORD_COOLDOWN_S` lang kein Trigger **und**
-   mindestens `RECORD_MIN_S` aufgezeichnet wurde. ffmpeg wird sauber
-   beendet (stdin close → letzteres Segment finalisiert).
+   While a trigger is active, `last_trigger_ts` is updated.
+2. **Start** (only when triggered): checks free space (`RECORD_MIN_FREE_MB`)
+   and starts ffmpeg with a raw video pipe (`-f rawvideo -pix_fmt bgr24`).
+3. **Feed**: frames from `camera.latest_frame()` are written to ffmpeg's
+   stdin as raw bytes at `RECORD_FPS`.
+4. **Stop**: only when no trigger has fired for `RECORD_COOLDOWN_S` **and**
+   at least `RECORD_MIN_S` has been recorded. ffmpeg is shut down cleanly
+   (stdin close → last segment finalized).
 5. **Rotation**: ffmpeg `-f segment -segment_time RECORD_SEGMENT_S
-   -strftime 1` erzeugt `YYYYMMDD_HHMMSS.mp4`-Segmente.
-   `-movflags +faststart` ⇒ progressive Browser-Playback.
+   -strftime 1` produces `YYYYMMDD_HHMMSS.mp4` segments.
+   `-movflags +faststart` ⇒ progressive browser playback.
 
 ### RetentionLoop (`app/retention.py`)
 
-Stündlich: löscht Segmente älter als `RECORD_RETENTION_DAYS` und – als
-Sicherheitsnetz – die ältesten Segmente, wenn die SSD zu
-`RECORD_MAX_DISK_PERCENT` voll ist.
+Hourly: deletes segments older than `RECORD_RETENTION_DAYS` and – as a
+safety net – the oldest segments when the SSD is more than
+`RECORD_MAX_DISK_PERCENT` full.
 
 ### Notifier (`app/notifier.py`)
 
-ntfy.sh-Client. Bei Hund-Erkennung: POST (Text) oder PUT (Bild-Anhang,
-einzelne Notification mit JPEG-Snapshot). Cooldown `NOTIFY_COOLDOWN_S`
-gegen Spam. Alle Fehler werden geloggt, nie geworfen.
+ntfy.sh client. On dog detection: POST (text) or PUT (image attachment,
+single notification with JPEG snapshot). Cooldown `NOTIFY_COOLDOWN_S`
+against spam. All errors are logged, never raised.
 
 ### Web (`app/web.py` + `app/auth.py` + `templates/`)
 
-FastAPI-Server auf Port `HOME_MONITOR_PORT` (Default 8080):
+FastAPI server on port `HOME_MONITOR_PORT` (default 8080):
 
-| Route | Auth | Beschreibung |
-|-------|------|--------------|
-| `GET /` | ja | Web-UI (`index.html`) |
-| `GET /login`, `POST /login`, `GET /logout` | nein | Login/Logout |
-| `GET /stream` | ja | MJPEG-Livestream (409 wenn gestoppt) |
-| `POST /api/stream/start|stop` | ja | Stream an/aus |
-| `GET /api/status` | ja | JSON-Status (Kamera, Stream, REC, Motion, Hund, SSD) |
-| `GET /api/recordings` | ja | Liste der MP4-Segmente |
-| `GET /recordings/{name}` | ja | MP4 abspielen/downloaden |
-| `GET /healthz` | nein | Health-Check (Docker) |
+| Route | Auth | Description |
+|-------|------|-------------|
+| `GET /` | yes | Web UI (`index.html`) |
+| `GET /login`, `POST /login`, `GET /logout` | no | Login/logout |
+| `GET /stream` | yes | MJPEG live stream (409 when stopped) |
+| `POST /api/stream/start|stop` | yes | Stream on/off |
+| `GET /api/status` | yes | JSON status (camera, stream, REC, motion, dog, SSD) |
+| `GET /api/recordings` | yes | List of MP4 segments |
+| `GET /recordings/{name}` | yes | Play/download MP4 |
+| `GET /healthz` | no | Health check (Docker) |
 
-Auth: `SessionMiddleware` (signiertes Cookie) + `AuthMiddleware`
-(alle Routen außer `/login`, `/healthz`). Passwort-Vergleich via
-`hmac.compare_digest`. Bei leerem `WEB_PASSWORD` ist Auth deaktiviert
-(Nur für lokale Tests).
+Auth: signed client-side session cookie (HMAC-SHA256, stdlib only) +
+`AuthMiddleware` (all routes except `/login`, `/healthz`). Password
+comparison via `hmac.compare_digest`. With an empty `WEB_PASSWORD`, auth
+is disabled (only for local tests).
 
-## Thread-Modell
-
-```
-Hauptthread:   uvicorn (FastAPI)
-Thread 1:      CameraSource._grab_loop   (Kamera-Frames)
-Thread 2:      _detector_loop            (YOLO, DETECT_FPS)      [optional]
-Thread 3:      _motion_loop              (Frame-Diff, MOTION_FPS) [optional]
-Thread 4:      RecorderController._loop  (Trigger + ffmpeg-Feed)
-Thread 5:      RetentionLoop._run        (stündlich Cleanup)
-Thread 6+:     ffmpeg-Subprozess         (pro Aufnahme)
-```
-
-## Datenfluss
+## Thread model
 
 ```
-Kamera-Frame
+Main thread:    uvicorn (FastAPI)
+Thread 1:       CameraSource._grab_loop   (camera frames)
+Thread 2:       _detector_loop            (YOLO, DETECT_FPS)      [optional]
+Thread 3:       _motion_loop              (frame diff, MOTION_FPS) [optional]
+Thread 4:       RecorderController._loop  (trigger + ffmpeg feed)
+Thread 5:       RetentionLoop._run        (hourly cleanup)
+Thread 6+:      ffmpeg subprocess         (per recording)
+```
+
+## Data flow
+
+```
+Camera frame
    ├─▶ DetectorLoop ──▶ state.detections, state.dog_active ──▶ Notifier (ntfy)
    ├─▶ MotionLoop  ──▶ state.motion_active
-   ├─▶ MJPEG /stream (wenn stream_active) ──▶ Browser
+   ├─▶ MJPEG /stream (when stream_active) ──▶ Browser
    └─▶ RecorderController ──▶ ffmpeg ──▶ /recordings/*.mp4 (SSD)
-state ──▶ /api/status ──▶ Browser-UI (Polling 1s)
+state ──▶ /api/status ──▶ Browser UI (polling 1s)
 ```
 
-## Persistenz
+## Persistence
 
-- `/recordings` (Bind-Mount `${RECORDINGS_HOST_DIR}` → `/mnt/ssd/recordings`):
-  MP4-Segmente, Retention-bereinigt.
-- `./models` (Bind-Mount → `/app/models`): `yolov8n.onnx` bleibt über
-  Container-Neustarts erhalten.
+- `/recordings` (bind mount `${RECORDINGS_HOST_DIR}` → `/mnt/ssd/recordings`):
+  MP4 segments, cleaned up by retention.
+- `./models` (bind mount → `/app/models`): `yolov8n.onnx` survives
+  container restarts.
 
-## GPU-Zugriff
+## GPU access
 
-Auf dem Jetson muss die **NVIDIA Container Runtime** installiert sein
-(`scripts/setup-jetson.sh`). Im `docker-compose.yml` ist `runtime: nvidia`
-gesetzt. Auf x86-Dev-Maschinen ohne NVIDIA-Runtime die
-`docker-compose.override.yml` verwenden — der Detektor läuft dann auf der
-CPU (langsam, aber funktional).
+On the Jetson the **NVIDIA Container Runtime** must be installed
+(`scripts/setup-jetson.sh`). In `docker-compose.yml`, `runtime: nvidia`
+is set. On x86 dev machines without the NVIDIA runtime use
+`docker-compose.override.yml` — the detector then runs on the CPU
+(slow, but functional).

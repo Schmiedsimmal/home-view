@@ -52,7 +52,7 @@ def _detector_loop(detector: Detector, camera: CameraSource, state: dict,
         if state["dog_active"]:
             state["dog_detected_ts"] = time.time()
             dogs = sum(1 for d in dets if d["label"] == "dog")
-            notifier.notify_dog(frame, extra=f"({dogs}x erkannt) ")
+            notifier.notify_dog(frame, extra=f"({dogs}x detected) ")
         time.sleep(interval)
 
 
@@ -102,7 +102,7 @@ def main() -> None:
     notifier = Notifier(cfg.notify)
     log.info(
         "Notifier ready: enabled=%s topic=%s",
-        notifier.enabled, cfg.notify.topic or "(leer)",
+        notifier.enabled, cfg.notify.topic or "(empty)",
     )
 
     state: dict = {

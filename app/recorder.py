@@ -122,7 +122,7 @@ class RecorderController:
             if not self._warned_disk:
                 log.warning("Cannot check disk usage of %s: %s", self.cfg.dir, exc)
                 self._warned_disk = True
-            self.error = f"Aufnahmeverzeichnis nicht erreichbar: {exc}"
+            self.error = f"Recordings directory unreachable: {exc}"
             return False
         self._warned_disk = False
         free_mb = usage.free / (1024 * 1024)
@@ -133,7 +133,7 @@ class RecorderController:
                     self.cfg.dir, free_mb, self.cfg.min_free_mb,
                 )
                 self._warned_disk = True
-            self.error = f"Zu wenig freier Speicher ({free_mb:.0f} MB)"
+            self.error = f"Not enough free space ({free_mb:.0f} MB)"
             return False
         self.error = None
         return True
@@ -188,7 +188,7 @@ class RecorderController:
             os.set_blocking(self._proc.stdin.fileno(), False)
         except Exception as exc:  # noqa: BLE001
             log.error("Failed to start ffmpeg: %s", exc)
-            self.error = f"ffmpeg-Start fehlgeschlagen: {exc}"
+            self.error = f"ffmpeg start failed: {exc}"
             self._close_proc()
             return False
 
@@ -221,10 +221,10 @@ class RecorderController:
         view = memoryview(self._pending)
         while self._pending_off < len(view):
             try:
-                # stdin ist der SCHREIB-ende des Pipes: auf Schreibbarkeit
-                # pruefen (wlist).
-                # select() gibt (readfds, writefds, exceptfds) zurueck —
-                # die Schreibbarkeit steht im ZWEITEN Rueckgabewert.
+                # stdin is the WRITE end of the pipe: check for
+                # writability (wlist).
+                # select() returns (readfds, writefds, exceptfds) —
+                # writability is the SECOND return value.
                 _, ready, _ = select.select([], [fd], [], 0.1)
                 if not ready:
                     continue
@@ -290,7 +290,7 @@ class RecorderController:
             # Detect ffmpeg crash while "active".
             if self._proc is not None and self._proc.poll() is not None:
                 log.warning("ffmpeg exited unexpectedly (rc=%s).", self._proc.returncode)
-                self.error = "ffmpeg unerwartet beendet"
+                self.error = "ffmpeg terminated unexpectedly"
                 self._close_proc()
 
             trigger = self.cfg.enabled and self._trigger_active()

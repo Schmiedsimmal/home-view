@@ -108,7 +108,7 @@ class Detector:
             import onnxruntime as ort
         except ImportError:
             raise RuntimeError(
-                "onnxruntime nicht installiert (pip install onnxruntime==1.10.0)"
+                "onnxruntime not installed (pip install onnxruntime==1.10.0)"
             )
 
         path = self._model_path()
@@ -119,7 +119,7 @@ class Detector:
             )
         log.info("Loading YOLO ONNX model: %s", path)
 
-        # CPU-only: onnxruntime 1.10 aarch64 hat keinen CUDA-Provider.
+        # CPU-only: onnxruntime 1.10 aarch64 has no CUDA provider.
         self._device = "cpu"
         opts = ort.SessionOptions()
         opts.log_severity_level = 3

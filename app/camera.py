@@ -116,9 +116,9 @@ class CameraSource:
                 raise CameraError("Cannot open nvargus camera (GStreamer pipeline failed)")
         else:
             log.info("Opening camera source: %r", self._index)
-            # CAP_V4L2 erzwingen: Auf dem Jetson waehlt OpenCV sonst den
-            # GStreamer-Backend, dessen v4l2src-Pipeline bei manchen
-            # USB-Kameras fehlschlaegt ("Internal data stream error").
+            # Force CAP_V4L2: on the Jetson OpenCV would otherwise choose
+            # the GStreamer backend, whose v4l2src pipeline fails on some
+            # USB cameras ("Internal data stream error").
             cap = cv2.VideoCapture(self._index, cv2.CAP_V4L2)
             if not cap.isOpened():
                 raise CameraError(f"Cannot open camera source: {self._index!r}")

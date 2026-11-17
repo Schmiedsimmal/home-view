@@ -1,127 +1,127 @@
-# WireGuard-Setup (Zugriff vom Handy)
+# WireGuard setup (access from your phone)
 
-Ziel: Vom Handy aus (über das Internet) auf die Web-UI des Jetson zugreifen,
-**ohne** Ports im Heimnetz offen zu legen. WireGuard verschlüsselt den
-Zugriff und überwindet NAT.
+Goal: access the Jetson's web UI from your phone (over the internet)
+**without** opening ports on the home network. WireGuard encrypts the
+access and traverses NAT.
 
-Es gibt drei Varianten — **Variante A (WireGuard auf dem Jetson)** ist die
-empfohlene und wird von `scripts/setup-wireguard.sh` unterstützt.
+There are three variants — **variant A (WireGuard on the Jetson)** is the
+recommended one and is supported by `scripts/setup-wireguard.sh`.
 
 ---
 
-## Variante A: WireGuard auf dem Jetson (empfohlen)
+## Variant A: WireGuard on the Jetson (recommended)
 
-Der Jetson wird selbst zum WireGuard-Server. Das Handy verbindet sich als
-Peer. Am Router muss nur UDP 51820 auf die Jetson-IP weitergeleitet werden.
+The Jetson itself becomes the WireGuard server. The phone connects as a
+peer. On the router only UDP 51820 needs to be forwarded to the Jetson IP.
 
-### A1. Auf dem Jetson ausführen
+### A1. Run on the Jetson
 
 ```bash
 bash scripts/setup-wireguard.sh
 ```
 
-Das Skript:
-- installiert `wireguard` + `wireguard-tools`
-- generiert Server-Keys (`/etc/wireguard/jetson_private.key`, `jetson_public.key`)
-- legt `/etc/wireguard/wg0.conf` an (Address `10.0.0.1/24`, Port 51820)
-- aktiviert `wg-quick@wg0` (autostart beim Booten)
+The script:
+- installs `wireguard` + `wireguard-tools`
+- generates server keys (`/etc/wireguard/jetson_private.key`, `jetson_public.key`)
+- creates `/etc/wireguard/wg0.conf` (address `10.0.0.1/24`, port 51820)
+- enables `wg-quick@wg0` (autostart on boot)
 
-Ausgabe beachten: **öffentlicher Key des Jetson** + VPN-IP `10.0.0.1`.
+Note the output: **the Jetson's public key** + VPN IP `10.0.0.1`.
 
-### A2. Router: Port-Forward einrichten
+### A2. Router: set up the port forward
 
-Im Heimrouter (z.B. Fritz!Box, EasyBox, OpenWrt):
+On the home router (e.g. Fritz!Box, EasyBox, OpenWrt):
 
-- **UDP 51820** an die **LAN-IP des Jetson** weiterleiten.
-- Optional: Dem Jetson eine **statische DHCP-Reservation** geben (damit die
-  LAN-IP nicht wechselt).
-- Falls der Jetson keine feste öffentliche IP hat: **DDNS** einrichten
-  (z.B. DuckDNS, afraid.org) und im Phone-Config als Endpoint nutzen.
+- Forward **UDP 51820** to the **Jetson's LAN IP**.
+- Optional: give the Jetson a **static DHCP reservation** (so the LAN IP
+  does not change).
+- If the Jetson has no fixed public IP: set up **DDNS**
+  (e.g. DuckDNS, afraid.org) and use it as the endpoint in the phone config.
 
-### A3. Handy: WireGuard-App konfigurieren
+### A3. Phone: configure the WireGuard app
 
-1. WireGuard-App installieren (iOS App Store / Android Play Store).
-2. Peer hinzufügen (QR-Code oder manuell):
+1. Install the WireGuard app (iOS App Store / Android Play Store).
+2. Add a peer (QR code or manually):
 
-   | Feld | Wert |
-   |------|------|
-   | PrivateKey | eigener privater Key des Handys (in der App generierbar) |
+   | Field | Value |
+   |-------|-------|
+   | PrivateKey | your phone's own private key (generatable in the app) |
    | Address | `10.0.0.2/24` |
-   | DNS | (leer lassen) |
-   | Peer PublicKey | **öffentlicher Key des Jetson** (aus A1) |
-   | Endpoint | `<deine-oeffentliche-IP-oder-DDNS>:51820` |
+   | DNS | (leave empty) |
+   | Peer PublicKey | **the Jetson's public key** (from A1) |
+   | Endpoint | `<your-public-IP-or-DDNS>:51820` |
    | AllowedIPs | `10.0.0.0/24` |
-   | Keepalive | `25` (empfohlen, hält NAT-Verbindung offen) |
+   | Keepalive | `25` (recommended, keeps the NAT connection open) |
 
-3. Handys-**Public-Key** kopieren (in der App sichtbar).
+3. Copy the phone's **public key** (visible in the app).
 
-### A4. Peer auf dem Jetson hinterlegen
+### A4. Register the peer on the Jetson
 
-Öffentlichen Key des Handys in `/etc/wireguard/wg0.conf` ergänzen:
+Add the phone's public key to `/etc/wireguard/wg0.conf`:
 
 ```ini
 [Peer]
-# Handy (z.B. iPhone)
-PublicKey = <public-key-des-handys>
+# Phone (e.g. iPhone)
+PublicKey = <public-key-of-the-phone>
 AllowedIPs = 10.0.0.2/32
 ```
 
-Dann neu laden:
+Then reload:
 
 ```bash
 sudo systemctl restart wg-quick@wg0
-wg show   # Peer sollte sichtbar sein
+wg show   # the peer should be visible
 ```
 
-### A5. Zugriff testen
+### A5. Test access
 
-- Handy: WireGuard-Tunnel aktivieren.
-- Browser: `http://10.0.0.1:8080` → Login mit `WEB_PASSWORD`.
-
----
-
-## Variante B: WireGuard auf dem Router
-
-Falls der Router bereits WireGuard unterstützt (z.B. Fritz!Box mit
-WireGuard-Erweiterung, OpenWrt, ASUS Merlin):
-
-1. WireGuard-Server **auf dem Router** einrichten (nicht auf dem Jetson).
-2. Jetson und Handy als Peers eintragen.
-3. Zugriff: `http://<jetson-lan-ip>:8080` (z.B. `http://192.168.1.50:8080`).
-
-Vorteil: Ein VPN für das ganze Heimnetz, keine Port-Forwards nötig.
-Nachteil: Mehr Konfiguration am Router, Jetson bleibt "dumm".
-
-## Variante C: WireGuard auf einem VPS
-
-Falls bereits ein VPS existiert (z.B. für andere Dienste):
-
-1. WireGuard-Server auf dem VPS (z.B. via `wg-easy` oder manuell).
-2. Jetson + Handy als Peers.
-3. Zugriff über die VPN-IP des Jetson.
-
-Vorteil: Funktioniert auch ohne Port-Forward am Heimrouter (Outbound-only).
-Nachteil: VPS-Kosten, etwas mehr Latenz.
+- Phone: enable the WireGuard tunnel.
+- Browser: `http://10.0.0.1:8080` → login with `WEB_PASSWORD`.
 
 ---
 
-## Sicherheitshinweise
+## Variant B: WireGuard on the router
 
-- **Web-Passwort nicht leer lassen** (`WEB_PASSWORD` in `.env`). WireGuard
-  schützt den Tunnel, aber das Passwort ist die zweite Barriere.
-- **ntfy-Topic** als geheim behandeln: Jeder, der den Topic kennt, kann die
-  Benachrichtigungen lesen. Einen eindeutigen Topic wählen
-  (z.B. `mein-name-hund-monitor-<zufall>`).
-- **Keys nicht committen**: `/etc/wireguard/*.key` und `.env` sind
-  gitignored — niemals in ein Repo pushen.
-- **WireGuard-Keys rotieren** falls ein Handy verloren geht:
-  neuen Key generieren, alten Peer aus `wg0.conf` entfernen.
+If the router already supports WireGuard (e.g. Fritz!Box with the
+WireGuard extension, OpenWrt, ASUS Merlin):
 
-## Fehlerbehebung
+1. Set up the WireGuard server **on the router** (not on the Jetson).
+2. Register the Jetson and the phone as peers.
+3. Access: `http://<jetson-lan-ip>:8080` (e.g. `http://192.168.1.50:8080`).
 
-| Problem | Lösung |
-|---------|--------|
-| `http://10.0.0.1:8080` nicht erreichbar | `sudo wg show` auf dem Jetson: Peer-Handshake vorhanden? Sonst: Endpoint/Port-Forward prüfen, Keepalive=25 setzen. |
-| Verbindet, aber Seite lädt nicht | Web-UI-Container läuft? `docker compose ps`, `docker logs home-monitoring`. |
-| Langsame Verbindung | MJPEG ist bandbreitenintensiv (~2-5 Mbit/s). `STREAM_MAX_FPS=10` oder `CAMERA_FPS=10` in `.env` senken. |
-| WireGuard-Interface startet nicht | `sudo journalctl -u wg-quick@wg0 -n 50` — oft Port-Konflikt oder Syntaxfehler in `wg0.conf`. |
+Advantage: one VPN for the whole home network, no port forwards needed.
+Disadvantage: more router configuration, the Jetson stays "dumb".
+
+## Variant C: WireGuard on a VPS
+
+If a VPS already exists (e.g. for other services):
+
+1. Set up the WireGuard server on the VPS (e.g. via `wg-easy` or manually).
+2. Jetson + phone as peers.
+3. Access via the Jetson's VPN IP.
+
+Advantage: works even without a port forward on the home router (outbound-only).
+Disadvantage: VPS costs, a bit more latency.
+
+---
+
+## Security notes
+
+- **Do not leave the web password empty** (`WEB_PASSWORD` in `.env`).
+  WireGuard protects the tunnel, but the password is the second barrier.
+- Treat the **ntfy topic** as a secret: anyone who knows the topic can
+  read the notifications. Choose a unique topic
+  (e.g. `my-name-dog-monitor-<random>`).
+- **Do not commit keys**: `/etc/wireguard/*.key` and `.env` are
+  gitignored — never push them to a repo.
+- **Rotate WireGuard keys** if a phone is lost:
+  generate a new key, remove the old peer from `wg0.conf`.
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| `http://10.0.0.1:8080` unreachable | `sudo wg show` on the Jetson: peer handshake present? Otherwise: check endpoint/port forward, set Keepalive=25. |
+| Connects but page does not load | Is the web UI container running? `docker compose ps`, `docker logs home-monitoring`. |
+| Slow connection | MJPEG is bandwidth-intensive (~2-5 Mbit/s). Lower `STREAM_MAX_FPS=10` or `CAMERA_FPS=10` in `.env`. |
+| WireGuard interface does not start | `sudo journalctl -u wg-quick@wg0 -n 50` — often a port conflict or syntax error in `wg0.conf`. |
