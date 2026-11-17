@@ -22,6 +22,7 @@ class Notifier:
     def __init__(self, cfg: NotifyConfig) -> None:
         self.cfg = cfg
         self._last_sent_ts: float = 0.0
+        self._last_cooldown_log_ts: float = 0.0
 
     @property
     def enabled(self) -> bool:
@@ -38,6 +39,13 @@ class Notifier:
         if not self.enabled:
             return False
         if self._cooldown_active():
+            # Log at most once per cooldown window (notify_dog is called
+            # every detector loop iteration while the dog is visible).
+            now = time.time()
+            if now - self._last_cooldown_log_ts >= self.cfg.cooldown_s:
+                self._last_cooldown_log_ts = now
+                log.info("ntfy notification suppressed (cooldown %.0fs active)",
+                         self.cfg.cooldown_s)
             return False
 
         title = "Dog detected"
