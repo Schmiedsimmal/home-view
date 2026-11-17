@@ -40,11 +40,12 @@ motion, recording) read the same frames.
 
 ### DetectorLoop (`app/main.py` + `app/detector.py`)
 
-- YOLOv8 (default `yolov8n.onnx`, COCO pretrained, ONNX export) via
-  OpenCV `cv2.dnn` with CUDA backend. On the Jetson Nano at `DETECT_FPS=5`
-  and `YOLO_IMG_SIZE=640` a good compromise between speed and accuracy.
-  (TensorRT/ultralytics is not used because JetPack 4.x only ships
-  Python 3.6.)
+- YOLOv8 (default `yolov8n.torchscript`, COCO pretrained) via PyTorch
+  `torch.jit` on **CUDA** (~20 FPS @320px on the Jetson Nano; torch 1.10
+  ships in the base image). Backend is chosen by model file extension:
+  `.torchscript` -> GPU, `.onnx` -> onnxruntime (CPU only, ~1.5 FPS).
+  NOTE: TorchScript files are tied to the torch version — the bundled
+  model was exported with torch 1.10.
 - Configurable classes (`DETECT_CLASSES`, default `0,16` = person, dog).
 - Detects `dog` → sets `dog_active` + `dog_detected_ts` in the shared state and
   triggers the ntfy notification (with cooldown).
