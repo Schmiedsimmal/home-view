@@ -53,8 +53,13 @@ def _detector_loop(detector: Detector, camera: CameraSource, state: dict,
         # Require 2 consecutive detector runs before flagging dog_active.
         streak = state.get("dog_streak", 0)
         state["dog_streak"] = streak + 1 if dog_now else 0
+        was_active = bool(state.get("dog_active"))
         state["dog_active"] = state["dog_streak"] >= 2
         state["person_active"] = "person" in labels
+        if state["dog_active"] and not was_active:
+            state["dog_active_since"] = time.time()
+        elif not state["dog_active"]:
+            state["dog_active_since"] = None
         if state["dog_active"]:
             state["dog_detected_ts"] = time.time()
             dogs = sum(1 for d in dets if d["label"] == "dog")
@@ -118,6 +123,7 @@ def main() -> None:
         "motion_area": 0,
         "dog_active": False,
         "dog_streak": 0,
+        "dog_active_since": None,
         "person_active": False,
         "dog_detected_ts": 0.0,
         "detections": [],

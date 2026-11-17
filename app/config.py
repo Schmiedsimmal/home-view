@@ -86,6 +86,8 @@ class RecordConfig:
     ffmpeg_crf: int = field(default_factory=lambda: env_int("FFMPEG_CRF", 23))
     # Minimum free space required before starting a recording [MB].
     min_free_mb: int = field(default_factory=lambda: env_int("RECORD_MIN_FREE_MB", 500))
+    # Dog must be detected continuously this long before recording starts [s].
+    dog_min_s: float = field(default_factory=lambda: env_float("RECORD_DOG_MIN_S", 3.0))
 
 
 @dataclass

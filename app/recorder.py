@@ -103,12 +103,19 @@ class RecorderController:
         self._stop_recording()
 
     # -- trigger evaluation ------------------------------------------------------
+    def _dog_sustained(self) -> bool:
+        """True while the dog has been detected continuously for >= dog_min_s."""
+        since = self.state.get("dog_active_since")
+        if since is None:
+            return False
+        return (time.time() - since) >= self.cfg.dog_min_s
+
     def _trigger_active(self) -> bool:
         t = self.cfg.trigger
         if t == "always":
             return True
         motion = bool(self.state.get("motion_active", False))
-        dog = bool(self.state.get("dog_active", False))
+        dog = self._dog_sustained()
         if t == "motion":
             return motion
         if t == "dog":
