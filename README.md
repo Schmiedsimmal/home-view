@@ -27,7 +27,7 @@ Everything runs in **a single Docker container**, started with `docker compose`.
 
 ```bash
 # 1. Clone the repo (or copy it) and cd into the directory
-cd home-monitoring
+cd home-view
 
 # 2. One-time setup (Docker, NVIDIA runtime, SSD check, autostart)
 bash scripts/setup-jetson.sh

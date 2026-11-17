@@ -9,8 +9,8 @@ Requires=docker.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-# Adjust the repo path if it is not /home/simon/git/home-monitoring
-WorkingDirectory=/home/simon/git/home-monitoring
+# Adjust the repo path if it is not /home/simon/git/home-view
+WorkingDirectory=/home/simon/git/home-view
 # Wait 5 seconds so USB devices settle.
 ExecStartPre=/bin/sleep 5
 # Compose as plugin ("docker compose") or standalone ("docker-compose").

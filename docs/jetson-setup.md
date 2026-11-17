@@ -12,7 +12,7 @@
 Run once on the Jetson:
 
 ```bash
-cd ~/git/home-monitoring   # or wherever the repo lives
+cd ~/git/home-view   # or wherever the repo lives
 bash scripts/setup-jetson.sh
 ```
 
