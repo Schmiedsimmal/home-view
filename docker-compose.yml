@@ -1,0 +1,91 @@
+# =============================================================================
+# Home Monitoring - docker-compose
+#
+# Ein Service: home-monitoring (FastAPI-Web-UI + Kamera-Pipeline).
+#
+# WICHTIG: Auf dem Jetson muss die NVIDIA Container Runtime installiert sein
+# (siehe scripts/setup-jetson.sh). Auf x86-Dev-Maschinen die Datei
+# docker-compose.override.yml verwenden (kein GPU, anderes Video-Device).
+#
+# Netzwerk: network_mode=host, weil der Jetson ein IPv6-only Internet hat
+# (kein IPv4-Default-Route). Bridge-Netzwerke im Docker-Container haetten
+# sonst keinen funktionierenden DNS/Internet-Zugang (ntfy.sh, Pip-Index).
+# =============================================================================
+
+services:
+  home-monitoring:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Build-Schritte (pip install) ebenfalls ueber das Host-Netzwerk,
+      # damit DNS/IPv6 aufloest (siehe network_mode oben).
+      network: host
+    container_name: home-monitoring
+    restart: unless-stopped
+    network_mode: host
+    # Docker setzt fuer host-networked Container 8.8.8.8 als DNS (IPv4), der
+    # Jetson hat aber nur IPv6-Internet. Der systemd-resolved-Stub des Hosts
+    # unter 127.0.0.53 ist im Host-Netzwerk erreichbar und loest DNS auf
+    # (wichtig fuer ntfy.sh-Benachrichtigungen).
+    dns:
+      - 127.0.0.53
+    env_file:
+      - .env
+    environment:
+      - TZ=${TZ:-Europe/Berlin}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
+      - PYTHONUNBUFFERED=1
+    runtime: nvidia
+    devices:
+      # USB-Webcam (backend=usb): Host-Geraet (z.B. /dev/video0) wird als
+      # /dev/video0 in den Container gemappt. VIDEO_DEVICE in .env anpassen.
+      # WICHTIG: Docker bricht den Start ab, wenn das Host-Device nicht
+      # existiert — bei reiner CSI-Nutzung (kein USB-Geraet) diese Zeile
+      # auskommentieren!
+      - ${VIDEO_DEVICE:-/dev/video0}:/dev/video0
+      # CSI-Kamera (backend=nvargus): Argus/ISP/GPU-Devices + Argus-Socket.
+      # Ohne diese Mounts kann nvarguscamerasrc im Container nicht öffnen.
+      - /dev/nvhost-as-gpu:/dev/nvhost-as-gpu
+      - /dev/nvhost-ctrl:/dev/nvhost-ctrl
+      - /dev/nvhost-ctrl-gpu:/dev/nvhost-ctrl-gpu
+      - /dev/nvhost-ctrl-isp:/dev/nvhost-ctrl-isp
+      - /dev/nvhost-ctrl-isp.1:/dev/nvhost-ctrl-isp.1
+      - /dev/nvhost-ctrl-nvdec:/dev/nvhost-ctrl-nvdec
+      - /dev/nvhost-ctrl-vi:/dev/nvhost-ctrl-vi
+      - /dev/nvhost-ctxsw-gpu:/dev/nvhost-ctxsw-gpu
+      - /dev/nvhost-dbg-gpu:/dev/nvhost-dbg-gpu
+      - /dev/nvhost-gpu:/dev/nvhost-gpu
+      - /dev/nvhost-isp:/dev/nvhost-isp
+      - /dev/nvhost-isp.1:/dev/nvhost-isp.1
+      - /dev/nvhost-msenc:/dev/nvhost-msenc
+      - /dev/nvhost-nvdec:/dev/nvhost-nvdec
+      - /dev/nvhost-nvjpg:/dev/nvhost-nvjpg
+      - /dev/nvhost-prof-gpu:/dev/nvhost-prof-gpu
+      - /dev/nvhost-sched-gpu:/dev/nvhost-sched-gpu
+      - /dev/nvhost-tsec:/dev/nvhost-tsec
+      - /dev/nvhost-tsecb:/dev/nvhost-tsecb
+      - /dev/nvhost-tsg-gpu:/dev/nvhost-tsg-gpu
+      - /dev/nvhost-vi:/dev/nvhost-vi
+      - /dev/nvhost-vic:/dev/nvhost-vic
+      - /dev/nvmap:/dev/nvmap
+    volumes:
+      # Argus-Daemon-Socket (Host) -> Container (für nvarguscamerasrc)
+      - /tmp/argus_socket:/tmp/argus_socket
+      # Aufnahmen-SSD (Host-Pfad -> /recordings im Container)
+      - ${RECORDINGS_HOST_DIR:-/mnt/ssd/recordings}:/recordings:rw
+      # YOLO-ONNX-Modell (./models/yolov8n.onnx auf dem Host)
+      - ./models:/app/models:rw
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    # Log-Rotation: der Kamera-Retry-Loop (Kamera nicht gesteckt) erzeugt
+    # sonst sehr viele Logs. Maximal 3 x 10 MB aufheben.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

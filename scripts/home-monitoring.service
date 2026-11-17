@@ -1,0 +1,23 @@
+[Unit]
+Description=Home Monitoring Docker Compose Stack
+# Nach Docker starten, damit die Container hochkommen können.
+After=docker.service
+Requires=docker.service
+# Kurz warten, damit USB-Geräte (Kamera) nach dem Booten erkannt werden.
+# Ohne das kann der Container starten, bevor /dev/video0 verfügbar ist.
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Pfad zum Repo anpassen falls nicht /home/simon/git/home-monitoring
+WorkingDirectory=/home/simon/git/home-monitoring
+# 5 Sekunden warten, damit USB-Geräte settle.
+ExecStartPre=/bin/sleep 5
+# Compose als Plugin ("docker compose") oder Standalone ("docker-compose").
+ExecStart=/bin/bash -c 'docker compose up -d || docker-compose up -d'
+ExecStop=/bin/bash -c 'docker compose stop || docker-compose stop'
+# Bei Fehlern nicht endlos neu versuchen (Docker restartet Container selbst).
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

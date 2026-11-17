@@ -1,0 +1,33 @@
+# =============================================================================
+# Lokales Development-Override (x86 ohne NVIDIA-Runtime, ohne CSI/Argus).
+#
+# Diese Datei wird von docker compose automatisch neben docker-compose.yml
+# geladen und deaktiviert GPU-, Argus- und CSI-spezifische Einstellungen.
+#
+# Auf dem Jetson: diese Datei loeschen oder umbenennen
+#   (mv docker-compose.override.yml docker-compose.override.yml.disabled)
+# =============================================================================
+
+services:
+  home-monitoring:
+    # runtime: nvidia ist im Base-File gesetzt; hier ohne GPU laufen lassen.
+    runtime: ""
+    # Base-File nutzt network_mode: host (Jetson, IPv6-only). Auf der Dev-
+    # Maschine wieder Bridge-Netzwerk + Port-Mapping verwenden.
+    network_mode: bridge
+    ports:
+      - "${HOME_MONITOR_PORT:-8080}:8080"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=
+      - NVIDIA_DRIVER_CAPABILITIES=
+      - PYTHONUNBUFFERED=1
+      - TZ=${TZ:-Europe/Berlin}
+    # Video-Device fuer die Dev-Maschine anpassen (z.B. /dev/video0,
+    # /dev/video6, ...). !override ersetzt die Device-Liste aus
+    # docker-compose.yml komplett (keine nvhost-Devices auf x86).
+    devices: !override
+      - /dev/video0:/dev/video0
+    # Volumes ohne Argus-Socket (gibt es auf x86 nicht).
+    volumes: !override
+      - ${RECORDINGS_HOST_DIR:-/mnt/ssd/recordings}:/recordings:rw
+      - ./models:/app/models:rw

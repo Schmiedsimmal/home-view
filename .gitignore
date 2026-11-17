@@ -1,0 +1,22 @@
+# Secrets / lokale Konfiguration
+.env
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Aufnahmen (falls lokal gemountet)
+recordings/
+*.mp4
+
+# Modelle / Caches
+models/
+*.engine
+*.pt
+
+# OS
+.DS_Store
+Thumbs.db

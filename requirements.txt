@@ -1,0 +1,27 @@
+# Python-Abhaengigkeiten fuer home-monitoring.
+#
+# WICHTIG: Das Jetson-Base-Image (dustynv/jetson-inference, JetPack 4.x)
+# liefert Python 3.6. Alle Versionen muessen daher Python-3.6-kompatibel
+# sein (keine aktuellen FastAPI/uvicorn/pytest-Releases).
+# Base-Image bringt bereits: torch 1.10 (CUDA), opencv 4.5 (CUDA+dnn), GStreamer.
+
+# Web-Stack (Python 3.6-kompatibel)
+fastapi==0.68.2
+uvicorn==0.16.0
+
+# dataclasses-Backport: Python 3.6 hat das Modul nicht im Stdlib (ab 3.7).
+dataclasses==0.6
+
+# ffmpeg-Binary fuer die Ereignis-Aufzeichnung (statisch, aarch64).
+# Das Base-Image enthaelt kein ffmpeg; imageio-ffmpeg liefert ein
+# passendes Binary mit (wird in app/recorder.py automatisch gefunden).
+imageio-ffmpeg==0.4.9
+
+# Objekterkennung laeuft ueber onnxruntime + ONNX (app/detector.py).
+# cv2.dnn (OpenCV 4.5) kann YOLOv8-ONNX nicht parsen; onnxruntime 1.10.0
+# ist die letzte Version mit Python-3.6- + aarch64-Wheel.
+# Modell: yolov8n.onnx im ./models-Verzeichnis (siehe README).
+onnxruntime==1.10.0
+
+# Tests
+pytest==7.0.1

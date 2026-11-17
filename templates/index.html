@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Wohnungs-Monitoring</title>
+    <style>
+        :root {
+            --bg: #0f1115;
+            --panel: #1a1d24;
+            --accent: #2e7d32;
+            --warn: #c62828;
+            --rec: #d32f2f;
+            --text: #e6e6e6;
+            --muted: #8a8f98;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        }
+        header {
+            padding: 12px 20px;
+            background: var(--panel);
+            border-bottom: 1px solid #2a2f3a;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+        .pills { display: flex; gap: 8px; flex-wrap: wrap; }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 13px;
+            background: #23272f;
+        }
+        .dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--muted);
+        }
+        .dot.ok   { background: var(--accent); }
+        .dot.warn { background: var(--warn); }
+        .dot.rec  { background: var(--rec); animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.3; } }
+        main {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 16px;
+            padding: 16px;
+        }
+        @media (max-width: 900px) {
+            main { grid-template-columns: 1fr; }
+        }
+        .stream-wrap {
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 16 / 9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .stream-wrap img { width: 100%; height: 100%; object-fit: contain; }
+        .stream-placeholder {
+            color: var(--muted);
+            text-align: center;
+            padding: 20px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            background: #2e7d32;
+            color: #fff;
+        }
+        button.secondary { background: #374151; }
+        button.danger { background: var(--rec); }
+        button:disabled { opacity: 0.5; cursor: default; }
+        .panel {
+            background: var(--panel);
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 16px;
+        }
+        .panel h2 { margin: 0 0 10px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+        .kv { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #23272f; font-size: 14px; }
+        .kv:last-child { border-bottom: none; }
+        .kv .v { font-variant-numeric: tabular-nums; }
+        .ok    { color: var(--accent); }
+        .warn  { color: var(--warn); }
+        .det-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .det-badge {
+            background: #23272f;
+            border-radius: 10px;
+            padding: 3px 10px;
+            font-size: 13px;
+        }
+        .rec-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #23272f;
+            font-size: 13px;
+        }
+        .rec-item:last-child { border-bottom: none; }
+        .rec-meta { color: var(--muted); font-variant-numeric: tabular-nums; }
+        .rec-actions button, .rec-actions .btn {
+            padding: 5px 10px;
+            font-size: 12px;
+            margin-left: 6px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        video {
+            width: 100%;
+            border-radius: 8px;
+            background: #000;
+            margin-top: 10px;
+        }
+        footer { padding: 10px 20px; color: var(--muted); font-size: 12px; }
+        a { color: #7ab3ff; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Wohnungs-Monitoring</h1>
+        <div class="pills">
+            <span class="status-pill"><span id="dot-camera" class="dot"></span>Kamera</span>
+            <span class="status-pill"><span id="dot-stream"  class="dot"></span>Stream</span>
+            <span class="status-pill"><span id="dot-rec"     class="dot"></span>Aufnahme</span>
+            <span class="status-pill"><span id="dot-ssd"     class="dot"></span>SSD</span>
+        </div>
+    </header>
+
+    <main>
+        <section>
+            <div class="stream-wrap">
+                <img id="stream-img" src="" alt="Livestream" style="display:none" onerror="onStreamError()">
+                <div id="stream-placeholder" class="stream-placeholder">
+                    <p>Stream ist gestoppt.</p>
+                    <p style="font-size:13px">Klick auf „Stream starten", um die Live-Ansicht zu oeffnen.</p>
+                </div>
+            </div>
+            <div class="controls">
+                <button id="btn-start" onclick="streamControl('start')">Stream starten</button>
+                <button id="btn-stop" class="danger" onclick="streamControl('stop')" style="display:none">Stream stoppen</button>
+            </div>
+            <div id="video-container"></div>
+        </section>
+
+        <aside>
+            <div class="panel">
+                <h2>Status</h2>
+                <div class="kv"><span>Kamera verbunden</span><span id="camera-open" class="v">-</span></div>
+                <div class="kv"><span>Stream aktiv</span><span id="stream-active" class="v">-</span></div>
+                <div class="kv"><span>Aufnahme aktiv</span><span id="rec-active" class="v">-</span></div>
+                <div class="kv"><span>Aufnahme-Dauer</span><span id="rec-elapsed" class="v">-</span></div>
+                <div class="kv"><span>Bewegung</span><span id="motion-active" class="v">-</span></div>
+                <div class="kv"><span>Hund erkannt</span><span id="dog-active" class="v">-</span></div>
+                <div class="kv"><span>Letzte Erkennung</span><span id="detections" class="v">-</span></div>
+                <div class="kv"><span>Detektor</span><span id="detector" class="v">-</span></div>
+                <div class="kv"><span>Benachrichtigung</span><span id="notify" class="v">-</span></div>
+                <div class="kv"><span>SSD frei</span><span id="disk-free" class="v">-</span></div>
+                <div class="kv"><span>SSD belegt</span><span id="disk-used" class="v">-</span></div>
+            </div>
+
+            <div class="panel">
+                <h2>Aufnahmen</h2>
+                <div id="recordings-list"><span class="rec-meta">Lade...</span></div>
+            </div>
+        </aside>
+    </main>
+
+    <footer>
+        Home Monitoring &middot; Jetson Nano &middot; <a href="/logout">Abmelden</a>
+    </footer>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+        const fmtBytes = (b) => {
+            if (b == null) return "-";
+            const u = ["B","KB","MB","GB","TB"];
+            let i = 0, v = b;
+            while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+            return v.toFixed(i === 0 ? 0 : 1) + " " + u[i];
+        };
+        const setDot = (el, ok) => {
+            el.classList.remove("ok", "warn", "rec");
+            el.classList.add(ok ? "ok" : "warn");
+        };
+        const setVal = (id, val, ok) => {
+            const el = $(id);
+            el.textContent = val;
+            el.classList.remove("ok", "warn");
+            if (ok === true)  el.classList.add("ok");
+            if (ok === false) el.classList.add("warn");
+        };
+
+        function applyStreamState(active) {
+            const img = $("stream-img");
+            if (active && !img.getAttribute("src")) img.src = "/stream";
+            img.style.display = active ? "block" : "none";
+            $("stream-placeholder").style.display = active ? "none" : "block";
+            $("btn-start").style.display = active ? "none" : "";
+            $("btn-stop").style.display = active ? "" : "none";
+            if (!active) img.removeAttribute("src");
+        }
+
+        // MJPEG-Verbindung abgebrochen (z.B. Server-Neustart) -> erneut versuchen.
+        function onStreamError() {
+            const img = $("stream-img");
+            img.removeAttribute("src");
+            setTimeout(() => {
+                if (img.style.display !== "none") img.src = "/stream";
+            }, 2000);
+        }
+
+        async function streamControl(action) {
+            try {
+                await fetch(`/api/stream/${action}`, { method: "POST" });
+                if (action === "start") {
+                    $("stream-img").src = "/stream";
+                    applyStreamState(true);
+                } else {
+                    applyStreamState(false);
+                }
+            } catch (e) { /* retry on next poll */ }
+        }
+
+        async function loadRecordings() {
+            try {
+                const r = await fetch("/api/recordings");
+                const list = await r.json();
+                const el = $("recordings-list");
+                if (!list.length) {
+                    el.innerHTML = '<span class="rec-meta">Keine Aufnahmen vorhanden.</span>';
+                    return;
+                }
+                el.innerHTML = list.map(rec => {
+                    const d = rec.start ? new Date(rec.start) : new Date(rec.mtime * 1000);
+                    const label = d.toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
+                    return `<div class="rec-item">
+                        <div>
+                            <div>${label}</div>
+                            <div class="rec-meta">${fmtBytes(rec.size)}</div>
+                        </div>
+                        <div class="rec-actions">
+                            <button class="secondary" onclick="playRecording('${rec.name}')">Abspielen</button>
+                            <a class="secondary btn" href="/recordings/${rec.name}?download=1">Download</a>
+                        </div>
+                    </div>`;
+                }).join("");
+            } catch (e) { /* ignore */ }
+        }
+
+        function playRecording(name) {
+            const c = $("video-container");
+            c.innerHTML = `<video controls autoplay src="/recordings/${name}"></video>`;
+            c.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+
+        async function poll() {
+            try {
+                const r = await fetch("/api/status");
+                const s = await r.json();
+                setDot($("dot-camera"), s.camera_open);
+                setDot($("dot-stream"), s.stream_active);
+                setDot($("dot-rec"), s.recording && s.recording.active);
+                setDot($("dot-ssd"), s.disk && s.disk.used_percent != null && s.disk.used_percent < 80);
+
+                setVal("camera-open", s.camera_open ? "JA" : "NEIN", s.camera_open);
+                setVal("stream-active", s.stream_active ? "JA" : "NEIN", s.stream_active);
+                setVal("rec-active", s.recording.active ? "JA" : "NEIN", s.recording.active);
+                setVal("rec-elapsed", s.recording.active ? Math.floor(s.recording.elapsed_s) + " s" : "-");
+                setVal("motion-active", s.motion_active ? "JA" : "NEIN", s.motion_active);
+                setVal("dog-active", s.dog_active ? "JA" : "NEIN", s.dog_active);
+                setVal("detections", (s.detections && s.detections.length) ? s.detections.join(", ") : "-");
+                const d = s.detector || {};
+                setVal("detector", d.enabled ? (d.loaded ? (d.using_engine ? "TensorRT" : "PyTorch") + " / " + (d.device || "-") : "lädt...") : "aus",
+                       d.enabled ? d.loaded : null);
+                setVal("notify", s.notify_enabled ? "aktiv" : "aus", s.notify_enabled);
+                setVal("disk-free", fmtBytes(s.disk && s.disk.free_bytes), null);
+                setVal("disk-used", s.disk && s.disk.used_percent != null ? s.disk.used_percent + " %" : "-", null);
+
+                if (s.stream_active !== undefined) applyStreamState(s.stream_active);
+                if (s.recording && s.recording.error) {
+                    // Fehler im Status-Panel sichtbar machen (kleiner Hinweis).
+                    setVal("rec-active", "FEHLER: " + s.recording.error, false);
+                }
+            } catch (e) {
+                // Server nicht bereit - stillschweigend erneut versuchen.
+            }
+        }
+
+        poll();
+        loadRecordings();
+        setInterval(poll, 1000);
+        setInterval(loadRecordings, 30000);
+    </script>
+</body>
+</html>
