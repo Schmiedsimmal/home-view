@@ -228,13 +228,15 @@
             <div class="stream-wrap">
                 <img id="stream-img" src="" alt="Live stream" style="display:none" onerror="onStreamError()">
                 <div id="stream-placeholder" class="stream-placeholder">
-                    <div class="big">Stream is stopped</div>
-                    <div class="small">Tap "Start stream" to open the live view.</div>
+                    <div class="big" id="placeholder-big">Stream is stopped</div>
+                    <div class="small" id="placeholder-small">Tap "Start stream" to run it in the background.</div>
                 </div>
             </div>
             <div class="controls">
-                <button id="btn-start" onclick="streamControl('start')">Start stream</button>
-                <button id="btn-stop" class="danger" onclick="streamControl('stop')" style="display:none">Stop stream</button>
+                <button id="btn-stream-start" onclick="streamControl('start')">Start stream</button>
+                <button id="btn-stream-stop" class="danger" onclick="streamControl('stop')" style="display:none">Stop stream</button>
+                <button id="btn-watch" class="secondary" onclick="setWatching(true)" style="display:none">Watch</button>
+                <button id="btn-unwatch" class="secondary" onclick="setWatching(false)" style="display:none">Close</button>
             </div>
             <div id="video-container"></div>
         </section>
@@ -290,14 +292,33 @@
             if (ok === false) el.classList.add("warn");
         };
 
+        let watching = false;
+        let lastStreamActive = false;
+
         function applyStreamState(active) {
+            lastStreamActive = active;
             const img = $("stream-img");
-            if (active && !img.getAttribute("src")) img.src = "/stream";
-            img.style.display = active ? "block" : "none";
-            $("stream-placeholder").style.display = active ? "none" : "block";
-            $("btn-start").style.display = active ? "none" : "";
-            $("btn-stop").style.display = active ? "" : "none";
-            if (!active) img.removeAttribute("src");
+            const show = active && watching;
+            if (show && !img.getAttribute("src")) img.src = "/stream";
+            img.style.display = show ? "block" : "none";
+            $("stream-placeholder").style.display = show ? "none" : "block";
+            $("btn-stream-start").style.display = active ? "none" : "";
+            $("btn-stream-stop").style.display = active ? "" : "none";
+            $("btn-watch").style.display = (active && !watching) ? "" : "none";
+            $("btn-unwatch").style.display = (active && watching) ? "" : "none";
+            if (!show) img.removeAttribute("src");
+            if (!active) {
+                $("placeholder-big").textContent = "Stream is stopped";
+                $("placeholder-small").textContent = "Tap \"Start stream\" to run it in the background.";
+            } else if (!watching) {
+                $("placeholder-big").textContent = "Stream runs in background";
+                $("placeholder-small").textContent = "Tap \"Watch\" to view the live image.";
+            }
+        }
+
+        function setWatching(w) {
+            watching = w;
+            applyStreamState(lastStreamActive);
         }
 
         // MJPEG connection dropped (e.g. server restart) -> try again.
@@ -313,9 +334,10 @@
             try {
                 await fetch(`/api/stream/${action}`, { method: "POST" });
                 if (action === "start") {
-                    $("stream-img").src = "/stream";
+                    watching = true;
                     applyStreamState(true);
                 } else {
+                    watching = false;
                     applyStreamState(false);
                 }
             } catch (e) { /* retry on next poll */ }
