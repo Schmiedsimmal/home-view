@@ -45,6 +45,7 @@ RUN echo nameserver 127.0.0.53 > /etc/resolv.conf \
 # Service code + templates.
 COPY app/ /app/app/
 COPY templates/ /app/templates/
+COPY static/ /app/static/
 
 # Mount points (overridden by volumes, but provide the directory structure
 # in the image).

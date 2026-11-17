@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 
 # Paths that never require authentication.
-_PUBLIC_PATHS = {"/login", "/healthz"}
+_PUBLIC_PATHS = {"/login", "/healthz", "/manifest.json", "/sw.js"}
 
 SESSION_COOKIE = "hm_session"
 SESSION_TTL_S = 7 * 24 * 3600  # 7 days
@@ -67,7 +67,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         path = request.url.path
-        if path in _PUBLIC_PATHS:
+        if path in _PUBLIC_PATHS or path.startswith("/static/"):
             return await call_next(request)
 
         token = request.cookies.get(SESSION_COOKIE, "")

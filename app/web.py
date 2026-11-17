@@ -9,7 +9,7 @@ from typing import Dict, List
 
 import cv2
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 
 from .camera import CameraSource
 from .config import Config
@@ -18,6 +18,7 @@ from .recorder import RecorderController
 
 log = logging.getLogger(__name__)
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 MAX_RECORDINGS_LISTED = 200
 
@@ -52,6 +53,31 @@ def build_app(
             "status": "ok",
             "camera_open": camera.is_open(),
         }
+
+    # -- PWA (manifest, service worker, icons) ------------------------------------
+    @app.get("/manifest.json")
+    async def manifest() -> Response:
+        data = (STATIC_DIR / "manifest.json").read_text(encoding="utf-8")
+        return Response(content=data, media_type="application/manifest+json")
+
+    @app.get("/sw.js")
+    async def service_worker() -> Response:
+        data = (STATIC_DIR / "sw.js").read_text(encoding="utf-8")
+        return Response(content=data, media_type="application/javascript")
+
+    @app.get("/static/{name}")
+    async def static_file(name: str) -> Response:
+        if "/" in name or "\\" in name or name.startswith("."):
+            raise HTTPException(status_code=400, detail="Invalid filename")
+        path = STATIC_DIR / name
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="Not found")
+        media = {
+            ".png": "image/png",
+            ".js": "application/javascript",
+            ".json": "application/json",
+        }.get(path.suffix.lower(), "application/octet-stream")
+        return Response(content=path.read_bytes(), media_type=media)
 
     # -- stream control ---------------------------------------------------------
     @app.post("/api/stream/start")
