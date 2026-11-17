@@ -6,137 +6,203 @@
     <title>Apartment Monitoring</title>
     <style>
         :root {
-            --bg: #0f1115;
-            --panel: #1a1d24;
-            --accent: #2e7d32;
-            --warn: #c62828;
-            --rec: #d32f2f;
-            --text: #e6e6e6;
-            --muted: #8a8f98;
+            --bg: #f5f5f7;
+            --card: #ffffff;
+            --text: #1d1d1f;
+            --muted: #86868b;
+            --blue: #0071e3;
+            --red: #ff3b30;
+            --green: #34c759;
+            --orange: #ff9500;
+            --separator: #e8e8ed;
+            --radius: 20px;
+            --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
         }
         * { box-sizing: border-box; }
         body {
             margin: 0;
             background: var(--bg);
             color: var(--text);
-            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
         }
         header {
-            padding: 12px 20px;
-            background: var(--panel);
-            border-bottom: 1px solid #2a2f3a;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            padding: 14px 24px;
+            background: rgba(245,245,247,.82);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid var(--separator);
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 10px;
         }
-        header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+        header h1 {
+            margin: 0;
+            font-size: 21px;
+            font-weight: 700;
+            letter-spacing: -.02em;
+        }
         .pills { display: flex; gap: 8px; flex-wrap: wrap; }
         .status-pill {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 4px 10px;
-            border-radius: 12px;
+            gap: 7px;
+            padding: 6px 12px;
+            border-radius: 980px;
             font-size: 13px;
-            background: #23272f;
+            font-weight: 500;
+            background: var(--card);
+            box-shadow: 0 1px 2px rgba(0,0,0,.05);
         }
         .dot {
             width: 8px; height: 8px; border-radius: 50%;
-            background: var(--muted);
+            background: #c7c7cc;
         }
-        .dot.ok   { background: var(--accent); }
-        .dot.warn { background: var(--warn); }
-        .dot.rec  { background: var(--rec); animation: blink 1s infinite; }
-        @keyframes blink { 50% { opacity: 0.3; } }
+        .dot.ok   { background: var(--green); }
+        .dot.warn { background: var(--orange); }
+        .dot.rec  { background: var(--red); animation: blink 1.2s infinite; }
+        @keyframes blink { 50% { opacity: .25; } }
         main {
             display: grid;
-            grid-template-columns: 1fr 340px;
-            gap: 16px;
-            padding: 16px;
+            grid-template-columns: 1fr 360px;
+            gap: 20px;
+            padding: 20px 24px;
+            max-width: 1400px;
+            margin: 0 auto;
         }
-        @media (max-width: 900px) {
+        @media (max-width: 920px) {
             main { grid-template-columns: 1fr; }
         }
         .stream-wrap {
             background: #000;
-            border-radius: 8px;
+            border-radius: var(--radius);
             overflow: hidden;
             aspect-ratio: 16 / 9;
             display: flex;
             align-items: center;
             justify-content: center;
+            box-shadow: var(--shadow);
             position: relative;
         }
         .stream-wrap img { width: 100%; height: 100%; object-fit: contain; }
         .stream-placeholder {
-            color: var(--muted);
+            color: #98989d;
             text-align: center;
-            padding: 20px;
+            padding: 24px;
         }
+        .stream-placeholder .big { font-size: 17px; font-weight: 600; color: #636366; }
+        .stream-placeholder .small { font-size: 13px; margin-top: 6px; }
         .controls {
             display: flex;
             gap: 10px;
-            margin-top: 12px;
+            margin-top: 14px;
         }
         button {
-            padding: 10px 18px;
+            padding: 10px 22px;
             border: none;
-            border-radius: 8px;
+            border-radius: 980px;
             font-size: 15px;
             font-weight: 600;
+            letter-spacing: -.01em;
             cursor: pointer;
-            background: #2e7d32;
+            background: var(--blue);
             color: #fff;
+            transition: opacity .15s ease, transform .05s ease;
         }
-        button.secondary { background: #374151; }
-        button.danger { background: var(--rec); }
-        button:disabled { opacity: 0.5; cursor: default; }
+        button:active { transform: scale(.97); }
+        button.secondary { background: #e8e8ed; color: var(--text); }
+        button.danger { background: var(--red); }
+        button.ghost {
+            background: transparent;
+            color: var(--red);
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+        button:disabled { opacity: .5; cursor: default; }
         .panel {
-            background: var(--panel);
-            border-radius: 8px;
-            padding: 14px;
-            margin-bottom: 16px;
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
         }
-        .panel h2 { margin: 0 0 10px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-        .kv { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #23272f; font-size: 14px; }
+        .panel h2 {
+            margin: 0 0 12px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .06em;
+        }
+        .kv {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--separator);
+            font-size: 15px;
+        }
         .kv:last-child { border-bottom: none; }
-        .kv .v { font-variant-numeric: tabular-nums; }
-        .ok    { color: var(--accent); }
-        .warn  { color: var(--warn); }
+        .kv .k { color: #424245; }
+        .kv .v { font-variant-numeric: tabular-nums; font-weight: 500; }
+        .ok    { color: var(--green); }
+        .warn  { color: var(--orange); }
         .det-list { display: flex; flex-wrap: wrap; gap: 6px; }
         .det-badge {
-            background: #23272f;
-            border-radius: 10px;
-            padding: 3px 10px;
+            background: #f0f0f2;
+            border-radius: 980px;
+            padding: 4px 12px;
             font-size: 13px;
+            font-weight: 500;
         }
         .rec-item {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #23272f;
-            font-size: 13px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--separator);
         }
         .rec-item:last-child { border-bottom: none; }
-        .rec-meta { color: var(--muted); font-variant-numeric: tabular-nums; }
-        .rec-actions button, .rec-actions .btn {
-            padding: 5px 10px;
-            font-size: 12px;
-            margin-left: 6px;
+        .rec-name { font-size: 15px; font-weight: 500; }
+        .rec-meta { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; margin-top: 2px; }
+        .rec-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+        .rec-actions .btn-link {
+            padding: 6px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 980px;
+            background: #e8e8ed;
+            color: var(--text);
             text-decoration: none;
             display: inline-block;
         }
+        .rec-actions .btn-link:hover { background: #dcdce0; }
+        .rec-actions button.ghost:hover { background: rgba(255,59,48,.08); }
+        .panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .panel-head h2 { margin: 0; }
         video {
             width: 100%;
-            border-radius: 8px;
+            border-radius: 14px;
             background: #000;
-            margin-top: 10px;
+            margin-top: 12px;
         }
-        footer { padding: 10px 20px; color: var(--muted); font-size: 12px; }
-        a { color: #7ab3ff; }
+        footer {
+            padding: 14px 24px 28px;
+            color: var(--muted);
+            font-size: 13px;
+            text-align: center;
+        }
+        a { color: var(--blue); text-decoration: none; }
     </style>
 </head>
 <body>
@@ -146,7 +212,7 @@
             <span class="status-pill"><span id="dot-camera" class="dot"></span>Camera</span>
             <span class="status-pill"><span id="dot-stream"  class="dot"></span>Stream</span>
             <span class="status-pill"><span id="dot-rec"     class="dot"></span>Recording</span>
-            <span class="status-pill"><span id="dot-ssd"     class="dot"></span>SSD</span>
+            <span class="status-pill"><span id="dot-ssd"     class="dot"></span>Storage</span>
         </div>
     </header>
 
@@ -155,8 +221,8 @@
             <div class="stream-wrap">
                 <img id="stream-img" src="" alt="Live stream" style="display:none" onerror="onStreamError()">
                 <div id="stream-placeholder" class="stream-placeholder">
-                    <p>Stream is stopped.</p>
-                    <p style="font-size:13px">Click "Start stream" to open the live view.</p>
+                    <div class="big">Stream is stopped</div>
+                    <div class="small">Tap "Start stream" to open the live view.</div>
                 </div>
             </div>
             <div class="controls">
@@ -169,21 +235,24 @@
         <aside>
             <div class="panel">
                 <h2>Status</h2>
-                <div class="kv"><span>Camera connected</span><span id="camera-open" class="v">-</span></div>
-                <div class="kv"><span>Stream active</span><span id="stream-active" class="v">-</span></div>
-                <div class="kv"><span>Recording active</span><span id="rec-active" class="v">-</span></div>
-                <div class="kv"><span>Recording duration</span><span id="rec-elapsed" class="v">-</span></div>
-                <div class="kv"><span>Motion</span><span id="motion-active" class="v">-</span></div>
-                <div class="kv"><span>Dog detected</span><span id="dog-active" class="v">-</span></div>
-                <div class="kv"><span>Last detection</span><span id="detections" class="v">-</span></div>
-                <div class="kv"><span>Detector</span><span id="detector" class="v">-</span></div>
-                <div class="kv"><span>Notification</span><span id="notify" class="v">-</span></div>
-                <div class="kv"><span>SSD free</span><span id="disk-free" class="v">-</span></div>
-                <div class="kv"><span>SSD used</span><span id="disk-used" class="v">-</span></div>
+                <div class="kv"><span class="k">Camera connected</span><span id="camera-open" class="v">-</span></div>
+                <div class="kv"><span class="k">Stream active</span><span id="stream-active" class="v">-</span></div>
+                <div class="kv"><span class="k">Recording active</span><span id="rec-active" class="v">-</span></div>
+                <div class="kv"><span class="k">Recording duration</span><span id="rec-elapsed" class="v">-</span></div>
+                <div class="kv"><span class="k">Motion</span><span id="motion-active" class="v">-</span></div>
+                <div class="kv"><span class="k">Dog detected</span><span id="dog-active" class="v">-</span></div>
+                <div class="kv"><span class="k">Last detection</span><span id="detections" class="v">-</span></div>
+                <div class="kv"><span class="k">Detector</span><span id="detector" class="v">-</span></div>
+                <div class="kv"><span class="k">Notification</span><span id="notify" class="v">-</span></div>
+                <div class="kv"><span class="k">Storage free</span><span id="disk-free" class="v">-</span></div>
+                <div class="kv"><span class="k">Storage used</span><span id="disk-used" class="v">-</span></div>
             </div>
 
             <div class="panel">
-                <h2>Recordings</h2>
+                <div class="panel-head">
+                    <h2>Recordings</h2>
+                    <button class="ghost" id="btn-delete-all" onclick="deleteAllRecordings()" style="display:none">Delete all</button>
+                </div>
                 <div id="recordings-list"><span class="rec-meta">Loading...</span></div>
             </div>
         </aside>
@@ -250,6 +319,7 @@
                 const r = await fetch("/api/recordings");
                 const list = await r.json();
                 const el = $("recordings-list");
+                $("btn-delete-all").style.display = list.length ? "" : "none";
                 if (!list.length) {
                     el.innerHTML = '<span class="rec-meta">No recordings available.</span>';
                     return;
@@ -259,12 +329,13 @@
                     const label = d.toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" });
                     return `<div class="rec-item">
                         <div>
-                            <div>${label}</div>
+                            <div class="rec-name">${label}</div>
                             <div class="rec-meta">${fmtBytes(rec.size)}</div>
                         </div>
                         <div class="rec-actions">
                             <button class="secondary" onclick="playRecording('${rec.name}')">Play</button>
-                            <a class="secondary btn" href="/recordings/${rec.name}?download=1">Download</a>
+                            <a class="btn-link" href="/recordings/${rec.name}?download=1">Download</a>
+                            <button class="ghost" onclick="deleteRecording('${rec.name}')">Delete</button>
                         </div>
                     </div>`;
                 }).join("");
@@ -275,6 +346,23 @@
             const c = $("video-container");
             c.innerHTML = `<video controls autoplay src="/recordings/${name}"></video>`;
             c.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+
+        async function deleteRecording(name) {
+            if (!confirm(`Delete recording ${name}?`)) return;
+            try {
+                await fetch(`/api/recordings/${name}`, { method: "DELETE" });
+                loadRecordings();
+            } catch (e) { /* ignore */ }
+        }
+
+        async function deleteAllRecordings() {
+            if (!confirm("Delete ALL recordings? This cannot be undone.")) return;
+            try {
+                await fetch("/api/recordings", { method: "DELETE" });
+                $("video-container").innerHTML = "";
+                loadRecordings();
+            } catch (e) { /* ignore */ }
         }
 
         async function poll() {
@@ -294,7 +382,7 @@
                 setVal("dog-active", s.dog_active ? "YES" : "NO", s.dog_active);
                 setVal("detections", (s.detections && s.detections.length) ? s.detections.join(", ") : "-");
                 const d = s.detector || {};
-                setVal("detector", d.enabled ? (d.loaded ? (d.using_engine ? "TensorRT" : "PyTorch") + " / " + (d.device || "-") : "loading...") : "off",
+                setVal("detector", d.enabled ? (d.loaded ? (d.using_engine ? "GPU" : "CPU") + " / " + (d.device || "-") : "loading...") : "off",
                        d.enabled ? d.loaded : null);
                 setVal("notify", s.notify_enabled ? "on" : "off", s.notify_enabled);
                 setVal("disk-free", fmtBytes(s.disk && s.disk.free_bytes), null);
@@ -302,7 +390,6 @@
 
                 if (s.stream_active !== undefined) applyStreamState(s.stream_active);
                 if (s.recording && s.recording.error) {
-                    // Make the error visible in the status panel (small note).
                     setVal("rec-active", "ERROR: " + s.recording.error, false);
                 }
             } catch (e) {

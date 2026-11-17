@@ -97,6 +97,29 @@ def build_app(
     async def recordings() -> List[Dict]:
         return _list_recordings(cfg.record.dir)
 
+    @app.delete("/api/recordings/{name}")
+    async def delete_recording(name: str) -> dict:
+        if "/" in name or "\\" in name or not name.endswith(".mp4") or name.startswith("."):
+            raise HTTPException(status_code=400, detail="Invalid filename")
+        path = os.path.join(cfg.record.dir, name)
+        if not os.path.isfile(path):
+            raise HTTPException(status_code=404, detail="Recording not found")
+        os.remove(path)
+        return {"deleted": name}
+
+    @app.delete("/api/recordings")
+    async def delete_all_recordings() -> dict:
+        deleted = 0
+        if os.path.isdir(cfg.record.dir):
+            for name in os.listdir(cfg.record.dir):
+                if name.endswith(".mp4") and not name.startswith("."):
+                    try:
+                        os.remove(os.path.join(cfg.record.dir, name))
+                        deleted += 1
+                    except OSError:
+                        pass
+        return {"deleted": deleted}
+
     @app.get("/recordings/{name}")
     async def recording_file(name: str, download: bool = Query(False)):
         # Path traversal protection: only plain *.mp4 filenames.
